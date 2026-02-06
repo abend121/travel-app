@@ -3,163 +3,249 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>我的旅程助手</title>
+    <title>高達君旅程面板 V3</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gundam: {
+                            light: '#e0f2fe', // 非常淡的藍 (背景)
+                            main: '#38bdf8',  // 主體天藍
+                            dark: '#0ea5e9',  // 深一點的藍 (按鈕互動)
+                            panel: '#f1f5f9', // 面板灰白
+                            text: '#334155'   // 深灰藍文字
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        /* 隱藏滾動條但保持功能 */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-        /* 模擬手機APP的點擊效果 */
-        .tap-active:active {
-            transform: scale(0.98);
-            transition: transform 0.1s;
-        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .tap-active:active { transform: scale(0.96); transition: transform 0.1s; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        
+        /* 機甲風格背景紋路 */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #f3f4f6; /* Gray-100 */
+            background-color: #e0f2fe; /* gundam-light */
+            background-image: 
+                linear-gradient(rgba(56, 189, 248, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(56, 189, 248, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        /* 機甲面板樣式 */
+        .mech-panel {
+            background: white;
+            border: 2px solid #bae6fd; /* 淡藍色邊框 */
+            box-shadow: 0 4px 6px -1px rgba(56, 189, 248, 0.1), 0 2px 4px -1px rgba(56, 189, 248, 0.06);
+        }
+        .mech-input {
+             background-color: #f1f5f9;
+             border: 2px solid #e2e8f0;
+             transition: all 0.3s;
+        }
+        .mech-input:focus {
+             border-color: #38bdf8;
+             box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
         }
     </style>
 </head>
 <body>
 
-<div id="app" class="max-w-md mx-auto bg-gray-50 min-h-screen relative shadow-2xl overflow-hidden flex flex-col">
+<div id="app" class="max-w-md mx-auto bg-slate-50 min-h-screen relative shadow-2xl overflow-hidden flex flex-col">
 
-    <header class="bg-white px-6 py-4 shadow-sm sticky top-0 z-20 flex justify-between items-center">
-        <h1 class="text-xl font-bold text-gray-800">{{ pageTitle }}</h1>
-        <div class="text-sm text-gray-500">{{ currentDate }}</div>
+    <header class="bg-white px-6 py-4 border-b-2 border-sky-100 sticky top-0 z-20 flex justify-between items-center">
+        <h1 class="text-xl font-bold text-slate-700 flex items-center">
+            <span class="text-2xl mr-2">🤖</span> {{ pageTitle }}
+        </h1>
+        <div class="text-xs font-mono bg-sky-100 text-sky-600 px-2 py-1 rounded-md border border-sky-200">
+            STATUS: OK | {{ currentDate }}
+        </div>
     </header>
 
-    <main class="flex-1 overflow-y-auto no-scrollbar p-4 pb-24">
+    <main class="flex-1 overflow-y-auto no-scrollbar p-4 pb-24 bg-slate-50/50">
         
         <div v-if="activeTab === 'schedule'" class="space-y-4">
-            <div v-for="(item, index) in itinerary" :key="index" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-start gap-4">
-                <div class="flex flex-col items-center min-w-[60px]">
-                    <span class="text-lg font-bold text-indigo-600">{{ item.time }}</span>
-                    <div class="mt-2 text-2xl" :title="item.weather">
+            <div v-if="itinerary.length === 0" class="text-center text-sky-300 mt-20">
+                <i class="fas fa-rocket text-5xl mb-4 opacity-50"></i>
+                <p class="font-bold">任務清單空白</p>
+                <p class="text-sm">請點擊右下角推進器新增任務</p>
+            </div>
+
+            <div v-for="(item, index) in sortedItinerary" :key="index" class="mech-panel p-4 rounded-xl flex items-start gap-4 relative group bg-white">
+                <button @click="deleteItinerary(index)" class="absolute top-2 right-2 text-slate-300 hover:text-red-400 p-1 transition">
+                    <i class="fas fa-times-circle"></i>
+                </button>
+
+                <div class="flex flex-col items-center justify-center min-w-[70px] bg-sky-50 rounded-lg border border-sky-100 p-2">
+                    <span class="text-lg font-black text-sky-600 font-mono">{{ item.time }}</span>
+                    <div class="mt-1 text-2xl filter drop-shadow-sm" :title="item.weather">
                         {{ getWeatherIcon(item.weather) }}
                     </div>
-                    <span class="text-xs text-gray-400 mt-1">{{ item.temp }}°C</span>
                 </div>
-                <div class="flex-1 border-l pl-4 border-gray-100">
-                    <h3 class="font-bold text-gray-800 text-lg">{{ item.title }}</h3>
-                    <p class="text-gray-500 text-sm mt-1 mb-3"><i class="fas fa-map-marker-alt mr-1"></i> {{ item.location }}</p>
+                <div class="flex-1 pl-2 pr-4">
+                    <h3 class="font-bold text-slate-700 text-lg">{{ item.title }}</h3>
+                    <p class="text-slate-500 text-sm mt-1 mb-3 flex items-center">
+                        <i class="fas fa-map-marker-alt mr-1 text-sky-400"></i> {{ item.location }}
+                    </p>
                     <a :href="getMapLink(item.location)" target="_blank" 
-                       class="tap-active inline-flex items-center bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-blue-100 transition">
-                        <i class="fas fa-directions mr-1"></i> 導航前往
+                       class="tap-active inline-flex items-center bg-gradient-to-r from-sky-400 to-cyan-400 text-white px-4 py-1.5 rounded-full text-xs font-bold hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                        <i class="fas fa-location-arrow mr-1"></i> 導航啟動
                     </a>
                 </div>
             </div>
-            
-            <button @click="addDemoItinerary" class="w-full py-3 border-2 border-dashed border-gray-300 text-gray-400 rounded-xl font-medium hover:bg-gray-50 tap-active">
-                + 新增範例行程
-            </button>
         </div>
 
         <div v-if="activeTab === 'map'" class="space-y-4">
-            <div class="bg-blue-600 text-white p-6 rounded-3xl shadow-lg mb-6 relative overflow-hidden">
+            <div class="bg-gradient-to-br from-sky-500 to-cyan-500 text-white p-6 rounded-2xl shadow-lg mb-6 relative overflow-hidden border-b-4 border-sky-700">
                 <div class="relative z-10">
-                    <h2 class="text-2xl font-bold mb-2">探索周邊</h2>
-                    <p class="text-blue-100">點擊下方地點直接開啟 Google Maps 導航</p>
+                    <h2 class="text-2xl font-bold mb-2 flex items-center"><i class="fas fa-satellite-dish mr-2"></i> 雷達掃描點</h2>
+                    <p class="text-sky-100 text-sm">已鎖定目標位置</p>
                 </div>
-                <i class="fas fa-map-marked-alt absolute -bottom-4 -right-4 text-8xl text-blue-500 opacity-50"></i>
+                <i class="fas fa-crosshairs absolute -bottom-6 -right-6 text-9xl text-sky-200 opacity-30 animate-pulse"></i>
+            </div>
+            
+            <div class="flex gap-2 mb-4 p-1 bg-sky-100 rounded-xl border border-sky-200">
+                <input v-model="newPlaceName" placeholder="輸入目標座標名稱..." class="flex-1 p-3 rounded-lg border-none outline-none bg-white focus:ring-2 focus:ring-sky-400 text-sm">
+                <button @click="addPlace" class="bg-sky-500 text-white px-4 rounded-lg shadow-md tap-active font-bold">
+                    鎖定
+                </button>
             </div>
 
-            <div v-for="(place, index) in savedPlaces" :key="index" 
-                 class="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center tap-active"
-                 @click="openMap(place.name)">
-                <div class="flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-500">
-                        <i class="fas fa-star"></i>
+            <div v-for="(place, index) in savedPlaces" :key="index" class="mech-panel p-4 rounded-xl flex justify-between items-center tap-active relative bg-white">
+                 <div class="flex items-center gap-4 w-full" @click="openMap(place.name)">
+                    <div class="w-12 h-12 rounded-xl bg-sky-100 flex items-center justify-center text-sky-500 border-2 border-sky-200">
+                        <i class="fas fa-map-pin text-xl"></i>
                     </div>
                     <div>
-                        <h4 class="font-bold text-gray-800">{{ place.name }}</h4>
-                        <p class="text-xs text-gray-500">{{ place.address }}</p>
+                        <h4 class="font-bold text-slate-700">{{ place.name }}</h4>
+                        <p class="text-xs text-sky-400">點擊啟動導航</p>
                     </div>
                 </div>
-                <i class="fas fa-chevron-right text-gray-300"></i>
+                <button @click="removePlace(index)" class="text-slate-300 hover:text-red-500 px-3"><i class="fas fa-trash-alt"></i></button>
             </div>
         </div>
 
         <div v-if="activeTab === 'accounting'" class="space-y-6">
-            <div class="bg-gray-900 text-white p-6 rounded-3xl shadow-lg text-center">
-                <p class="text-gray-400 text-sm mb-1">總支出</p>
-                <div class="text-4xl font-bold font-mono">${{ totalExpense }}</div>
+            <div class="bg-slate-800 text-cyan-400 p-6 rounded-2xl shadow-lg text-center border-2 border-slate-700 relative overflow-hidden font-mono">
+                <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMjAgMjBMMCA0MGg0MEwyMCAyMHoiIGZpbGw9IiMzMzQxNTUiIGZpbGwtb3BhY2l0eT0iMC4xIi8+PC9zdmc+')] opacity-20"></div>
+                <p class="text-slate-400 text-sm mb-1">總能源消耗 (TWD)</p>
+                <div class="text-4xl font-black tracking-wider text-glow">${{ totalExpense }}</div>
             </div>
 
-            <div class="bg-white p-4 rounded-2xl shadow-sm">
-                <div class="flex gap-2 mb-2">
-                    <input v-model="newExpenseName" type="text" placeholder="項目 (例: 午餐)" class="flex-1 bg-gray-50 border-none rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none">
-                    <input v-model.number="newExpenseAmount" type="number" placeholder="$" class="w-20 bg-gray-50 border-none rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none">
+            <div class="mech-panel p-4 rounded-xl bg-sky-50">
+                <h3 class="text-sky-700 font-bold text-sm mb-3 flex items-center"><i class="fas fa-calculator mr-2"></i> 貨幣轉換終端</h3>
+                <div class="flex items-center gap-2 bg-white p-2 rounded-lg border border-sky-200">
+                    <input type="number" v-model="currencyAmount" placeholder="外幣" class="w-1/3 p-2 rounded-md bg-slate-50 border-none text-center outline-none focus:ring-2 focus:ring-sky-300">
+                    <span class="text-slate-400 font-bold">×</span>
+                    <input type="number" v-model="exchangeRate" placeholder="匯率" class="w-1/4 p-2 rounded-md bg-slate-50 border-none text-center outline-none focus:ring-2 focus:ring-sky-300">
+                    <span class="text-slate-400 font-bold">=</span>
+                    <span class="font-bold text-sky-600 text-xl flex-1 text-right font-mono pr-2">{{ calculatedCurrency }}</span>
                 </div>
-                <button @click="addExpense" class="w-full bg-indigo-600 text-white py-2 rounded-xl font-bold shadow-md shadow-indigo-200 tap-active">
-                    記一筆
+            </div>
+
+            <div class="mech-panel p-4 rounded-xl bg-white">
+                <div class="flex gap-2 mb-3">
+                    <input v-model="newExpenseName" type="text" placeholder="消耗項目" class="flex-1 mech-input rounded-lg px-4 py-2 outline-none">
+                    <input v-model.number="newExpenseAmount" type="number" placeholder="$" class="w-24 mech-input rounded-lg px-4 py-2 outline-none font-mono">
+                </div>
+                <button @click="addExpense" class="w-full bg-gradient-to-r from-sky-500 to-cyan-500 text-white py-3 rounded-lg font-bold shadow-md tap-active tracking-widest">
+                    記錄數據
                 </button>
             </div>
 
             <div class="space-y-2">
-                <div v-for="(expense, index) in expenses" :key="index" class="flex justify-between items-center bg-white px-4 py-3 rounded-xl shadow-sm">
-                    <span class="text-gray-700">{{ expense.name }}</span>
+                <div v-for="(expense, index) in expenses" :key="index" class="flex justify-between items-center bg-white px-4 py-3 rounded-lg shadow-sm border-b-2 border-slate-100">
+                    <span class="text-slate-700 font-medium">{{ expense.name }}</span>
                     <div class="flex items-center gap-3">
-                        <span class="font-bold font-mono text-gray-900">${{ expense.amount }}</span>
-                        <button @click="removeExpense(index)" class="text-red-400 text-xs"><i class="fas fa-trash"></i></button>
+                        <span class="font-bold font-mono text-sky-600">${{ expense.amount }}</span>
+                        <button @click="removeExpense(index)" class="text-slate-300 hover:text-red-400 text-sm"><i class="fas fa-trash"></i></button>
                     </div>
                 </div>
             </div>
         </div>
 
         <div v-if="activeTab === 'shopping'" class="space-y-4">
-            <div class="flex gap-2">
-                <input v-model="newItem" @keyup.enter="addItem" type="text" placeholder="想買什麼？" class="flex-1 bg-white border-none rounded-xl px-4 py-3 shadow-sm focus:ring-2 focus:ring-green-500 outline-none">
-                <button @click="addItem" class="bg-green-500 text-white w-12 h-12 rounded-xl shadow-md tap-active flex items-center justify-center">
-                    <i class="fas fa-plus"></i>
+            <div class="flex gap-2 p-1 bg-green-50 rounded-xl border border-green-200">
+                <input v-model="newItem" @keyup.enter="addItem" type="text" placeholder="輸入補給品名稱..." class="flex-1 bg-white border-none rounded-lg px-4 py-3 shadow-sm outline-none focus:ring-2 focus:ring-green-400">
+                <button @click="addItem" class="bg-green-500 text-white w-12 rounded-lg shadow-md tap-active flex items-center justify-center">
+                    <i class="fas fa-plus font-bold"></i>
                 </button>
             </div>
-
             <div class="space-y-2 mt-4">
                 <div v-for="(item, index) in shoppingList" :key="index" 
-                     class="bg-white p-3 rounded-xl shadow-sm flex items-center gap-3 transition-all duration-300"
-                     :class="{'opacity-50 bg-gray-100': item.checked}">
-                    <div @click="toggleCheck(index)" class="cursor-pointer w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors"
-                         :class="item.checked ? 'bg-green-500 border-green-500' : 'border-gray-300'">
-                        <i v-if="item.checked" class="fas fa-check text-white text-xs"></i>
+                     class="mech-panel p-3 rounded-lg flex items-center gap-3 bg-white transition-all duration-300" 
+                     :class="{'opacity-60 bg-slate-100': item.checked, 'border-green-300': item.checked}">
+                    <div @click="toggleCheck(index)" class="cursor-pointer w-7 h-7 rounded-md border-2 flex items-center justify-center transition-colors"
+                         :class="item.checked ? 'bg-green-500 border-green-500 shadow-sm' : 'border-slate-300 bg-slate-50'">
+                        <i v-if="item.checked" class="fas fa-check text-white text-sm font-bold"></i>
                     </div>
-                    <span class="flex-1 text-lg" :class="{'line-through text-gray-400': item.checked}">{{ item.text }}</span>
-                    <button @click="removeItem(index)" class="text-gray-300 hover:text-red-500 px-2"><i class="fas fa-times"></i></button>
+                    <span class="flex-1 text-lg font-medium text-slate-700" :class="{'line-through text-slate-400': item.checked}">{{ item.text }}</span>
+                    <button @click="removeItem(index)" class="text-slate-300 hover:text-red-500 px-2"><i class="fas fa-times"></i></button>
                 </div>
             </div>
-            
-            <div v-if="shoppingList.length === 0" class="text-center text-gray-400 mt-10">
-                <i class="fas fa-shopping-basket text-4xl mb-2 opacity-30"></i>
-                <p>清單是空的</p>
-            </div>
         </div>
-
     </main>
 
-    <nav class="bg-white border-t border-gray-100 px-6 py-3 flex justify-between items-center z-30">
-        <button @click="activeTab = 'schedule'" :class="activeTab === 'schedule' ? 'text-indigo-600' : 'text-gray-400'" class="flex flex-col items-center gap-1 tap-active w-12">
-            <i class="fas fa-calendar-alt text-xl"></i>
-            <span class="text-[10px] font-medium">行程</span>
-        </button>
-        <button @click="activeTab = 'map'" :class="activeTab === 'map' ? 'text-indigo-600' : 'text-gray-400'" class="flex flex-col items-center gap-1 tap-active w-12">
-            <i class="fas fa-map text-xl"></i>
-            <span class="text-[10px] font-medium">地圖</span>
-        </button>
-        <div class="w-12"></div> <button @click="activeTab = 'accounting'" :class="activeTab === 'accounting' ? 'text-indigo-600' : 'text-gray-400'" class="flex flex-col items-center gap-1 tap-active w-12">
-            <i class="fas fa-wallet text-xl"></i>
-            <span class="text-[10px] font-medium">記帳</span>
-        </button>
-        <button @click="activeTab = 'shopping'" :class="activeTab === 'shopping' ? 'text-indigo-600' : 'text-gray-400'" class="flex flex-col items-center gap-1 tap-active w-12">
-            <i class="fas fa-shopping-cart text-xl"></i>
-            <span class="text-[10px] font-medium">購物</span>
+    <button v-if="activeTab === 'schedule'" @click="showModal = true" 
+        class="absolute bottom-24 right-6 bg-gradient-to-r from-sky-400 to-cyan-400 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-2xl tap-active z-10 hover:scale-105 transition-all border-4 border-white/30">
+        <i class="fas fa-rocket"></i>
+    </button>
+
+    <transition name="fade">
+        <div v-if="showModal" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border-t-4 border-sky-400">
+                <h3 class="text-xl font-bold mb-6 text-slate-800 flex items-center"><span class="text-2xl mr-2">📝</span> 新增任務資料</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs font-bold text-sky-600 ml-1 uppercase tracking-wider">執行時間</label>
+                        <input v-model="form.time" type="time" class="w-full mech-input p-3 rounded-xl outline-none font-mono">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-sky-600 ml-1 uppercase tracking-wider">任務代號 (標題)</label>
+                        <input v-model="form.title" type="text" placeholder="例: 強襲! 鋼彈咖啡廳" class="w-full mech-input p-3 rounded-xl outline-none">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-sky-600 ml-1 uppercase tracking-wider">目標座標 (地點)</label>
+                        <input v-model="form.location" type="text" placeholder="例: 秋葉原 UDX" class="w-full mech-input p-3 rounded-xl outline-none">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-sky-600 ml-1 uppercase tracking-wider">環境預測</label>
+                        <div class="flex justify-between mt-2 gap-2">
+                            <button v-for="w in ['sunny','cloudy','rainy','snow']" :key="w" 
+                                @click="form.weather = w"
+                                :class="form.weather === w ? 'bg-sky-100 border-sky-500 text-sky-600 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-400'"
+                                class="flex-1 h-12 rounded-xl border-2 flex items-center justify-center text-2xl transition-all">
+                                {{ getWeatherIcon(w) }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mt-8">
+                    <button @click="showModal = false" class="flex-1 py-3 text-slate-500 font-bold bg-slate-100 rounded-xl hover:bg-slate-200 transition">取消</button>
+                    <button @click="submitItinerary" class="flex-1 py-3 bg-gradient-to-r from-sky-500 to-cyan-500 text-white font-bold rounded-xl shadow-lg tap-active tracking-wider">確認登錄</button>
+                </div>
+            </div>
+        </div>
+    </transition>
+
+    <nav class="bg-white/80 backdrop-blur-md border-t-2 border-sky-200 px-4 py-2 flex justify-around items-center z-30 pb-safe rounded-t-3xl shadow-[0_-4px_6px_-1px_rgba(56,189,248,0.1)]">
+        <button v-for="tab in tabs" :key="tab.id" @click="activeTab = tab.id" 
+                :class="activeTab === tab.id ? 'text-sky-600 bg-sky-50 border-sky-200 transform -translate-y-2 shadow-md' : 'text-slate-400 border-transparent'" 
+                class="flex flex-col items-center gap-1 tap-active w-16 py-2 rounded-2xl border-2 transition-all duration-300 relative group">
+            <i :class="tab.icon + ' text-xl ' + (activeTab === tab.id ? 'animate-pulse' : '')"></i>
+            <span class="text-[10px] font-bold tracking-widest">{{ tab.label }}</span>
+            <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-1 bg-sky-400 rounded-t-full opacity-0 transition-opacity" :class="{'opacity-100': activeTab === tab.id}"></div>
         </button>
     </nav>
 </div>
@@ -171,115 +257,105 @@
         data() {
             return {
                 activeTab: 'schedule',
+                showModal: false,
+                // 導航設定 (加上機器人風格的標籤)
+                tabs: [
+                    { id: 'schedule', label: '任務', icon: 'fas fa-clipboard-list' },
+                    { id: 'map', label: '雷達', icon: 'fas fa-map-marked' },
+                    { id: 'accounting', label: '能源', icon: 'fas fa-chart-pie' },
+                    { id: 'shopping', label: '補給', icon: 'fas fa-cart-arrow-down' }
+                ],
+                // 行程表單資料
+                form: { time: '09:00', title: '', location: '', weather: 'sunny' },
+                itinerary: JSON.parse(localStorage.getItem('itinerary_v3')) || [],
+                
+                // 地圖資料
+                newPlaceName: '',
+                savedPlaces: JSON.parse(localStorage.getItem('places_v3')) || [
+                    { name: '鋼彈工廠橫濱' }, { name: '台場獨角獸鋼彈' }
+                ],
+                
+                // 記帳資料
                 newExpenseName: '',
                 newExpenseAmount: '',
+                expenses: JSON.parse(localStorage.getItem('expenses_v3')) || [],
+                currencyAmount: '',
+                exchangeRate: 0.23,
+
+                // 購物資料
                 newItem: '',
-                // 模擬行程數據 (Local Storage 讀取或預設)
-                itinerary: JSON.parse(localStorage.getItem('itinerary')) || [
-                    { time: '09:00', title: '享用早餐', location: '阜杭豆漿', weather: 'sunny', temp: 24 },
-                    { time: '10:30', title: '參觀博物館', location: '國立故宮博物院', weather: 'cloudy', temp: 26 },
-                    { time: '13:00', title: '午餐時間', location: '鼎泰豐', weather: 'rainy', temp: 23 },
-                ],
-                // 模擬地點
-                savedPlaces: [
-                    { name: '台北101', address: '信義區信義路五段7號' },
-                    { name: '士林夜市', address: '士林區基河路101號' },
-                    { name: '象山步道', address: '信義區信義路五段150巷' }
-                ],
-                // 記帳數據
-                expenses: JSON.parse(localStorage.getItem('expenses')) || [],
-                // 購物清單
-                shoppingList: JSON.parse(localStorage.getItem('shoppingList')) || []
+                shoppingList: JSON.parse(localStorage.getItem('shoppingList_v3')) || []
             }
         },
         computed: {
             pageTitle() {
-                const titles = {
-                    'schedule': '今日行程',
-                    'map': '地圖導航',
-                    'accounting': '旅行記帳',
-                    'shopping': '購物清單'
-                };
-                return titles[this.activeTab];
+                const map = { 'schedule': '任務行程面板', 'map': '雷達導航系統', 'accounting': '能源消耗監控', 'shopping': '補給品清單' };
+                return map[this.activeTab];
             },
             currentDate() {
-                return new Date().toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', weekday: 'short' });
+                return new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }).replace('/','');
             },
             totalExpense() {
                 return this.expenses.reduce((sum, item) => sum + item.amount, 0);
+            },
+            calculatedCurrency() {
+                if(!this.currencyAmount || !this.exchangeRate) return 0;
+                return Math.round(this.currencyAmount * this.exchangeRate * 10) / 10;
+            },
+            sortedItinerary() {
+                return this.itinerary.sort((a, b) => a.time.localeCompare(b.time));
             }
         },
         watch: {
-            // 自動儲存到 LocalStorage
-            expenses: {
-                handler(newVal) { localStorage.setItem('expenses', JSON.stringify(newVal)); },
-                deep: true
-            },
-            shoppingList: {
-                handler(newVal) { localStorage.setItem('shoppingList', JSON.stringify(newVal)); },
-                deep: true
-            },
-            itinerary: {
-                handler(newVal) { localStorage.setItem('itinerary', JSON.stringify(newVal)); },
-                deep: true
-            }
+            // 更新 LocalStorage Key 到 v3 以免衝突
+            itinerary: { handler(v) { localStorage.setItem('itinerary_v3', JSON.stringify(v)); }, deep: true },
+            expenses: { handler(v) { localStorage.setItem('expenses_v3', JSON.stringify(v)); }, deep: true },
+            shoppingList: { handler(v) { localStorage.setItem('shoppingList_v3', JSON.stringify(v)); }, deep: true },
+            savedPlaces: { handler(v) { localStorage.setItem('places_v3', JSON.stringify(v)); }, deep: true }
         },
         methods: {
-            // 天氣圖示邏輯
             getWeatherIcon(type) {
-                const icons = {
-                    'sunny': '☀️',
-                    'cloudy': '☁️',
-                    'rainy': '🌧️',
-                    'snow': '❄️'
-                };
+                const icons = { 'sunny': '☀️', 'cloudy': '☁️', 'rainy': '🌧️', 'snow': '❄️' };
                 return icons[type] || '🌤️';
             },
-            // Google Maps 導航連結
             getMapLink(location) {
-                // 使用 Google Maps Universal Link
-                return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(location)}`;
+                return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
             },
             openMap(location) {
                 window.open(this.getMapLink(location), '_blank');
             },
-            // 記帳功能
-            addExpense() {
-                if (this.newExpenseName && this.newExpenseAmount) {
-                    this.expenses.unshift({
-                        name: this.newExpenseName,
-                        amount: this.newExpenseAmount
-                    });
-                    this.newExpenseName = '';
-                    this.newExpenseAmount = '';
+            submitItinerary() {
+                if (this.form.title) {
+                    this.itinerary.push({ ...this.form });
+                    this.showModal = false;
+                    this.form = { time: '09:00', title: '', location: '', weather: 'sunny' };
                 }
             },
-            removeExpense(index) {
-                this.expenses.splice(index, 1);
+            deleteItinerary(index) {
+                if(confirm('確認移除此任務項目？')) { this.itinerary.splice(index, 1); }
             },
-            // 購物清單功能
+            addPlace() {
+                if(this.newPlaceName) {
+                    this.savedPlaces.push({ name: this.newPlaceName });
+                    this.newPlaceName = '';
+                }
+            },
+            removePlace(index) { this.savedPlaces.splice(index, 1); },
+            addExpense() {
+                if (this.newExpenseName && this.newExpenseAmount) {
+                    this.expenses.unshift({ name: this.newExpenseName, amount: this.newExpenseAmount });
+                    this.newExpenseName = ''; this.newExpenseAmount = '';
+                }
+            },
+            removeExpense(index) { this.expenses.splice(index, 1); },
             addItem() {
                 if (this.newItem.trim()) {
                     this.shoppingList.unshift({ text: this.newItem, checked: false });
                     this.newItem = '';
                 }
             },
-            toggleCheck(index) {
-                this.shoppingList[index].checked = !this.shoppingList[index].checked;
-            },
-            removeItem(index) {
-                this.shoppingList.splice(index, 1);
-            },
-            // 範例：新增行程
-            addDemoItinerary() {
-                this.itinerary.push({
-                    time: '18:00',
-                    title: '逛夜市',
-                    location: '饒河街觀光夜市',
-                    weather: 'cloudy',
-                    temp: 22
-                });
-            }
+            toggleCheck(index) { this.shoppingList[index].checked = !this.shoppingList[index].checked; },
+            removeItem(index) { this.shoppingList.splice(index, 1); }
         }
     }).mount('#app')
 </script>
