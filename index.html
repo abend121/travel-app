@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>我的旅程助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* 隱藏滾動條但保持功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* 模擬手機APP的點擊效果 */
+        .tap-active:active {
+            transform: scale(0.98);
+            transition: transform 0.1s;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6; /* Gray-100 */
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="max-w-md mx-auto bg-gray-50 min-h-screen relative shadow-2xl overflow-hidden flex flex-col">
+
+    <header class="bg-white px-6 py-4 shadow-sm sticky top-0 z-20 flex justify-between items-center">
+        <h1 class="text-xl font-bold text-gray-800">{{ pageTitle }}</h1>
+        <div class="text-sm text-gray-500">{{ currentDate }}</div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto no-scrollbar p-4 pb-24">
+        
+        <div v-if="activeTab === 'schedule'" class="space-y-4">
+            <div v-for="(item, index) in itinerary" :key="index" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-start gap-4">
+                <div class="flex flex-col items-center min-w-[60px]">
+                    <span class="text-lg font-bold text-indigo-600">{{ item.time }}</span>
+                    <div class="mt-2 text-2xl" :title="item.weather">
+                        {{ getWeatherIcon(item.weather) }}
+                    </div>
+                    <span class="text-xs text-gray-400 mt-1">{{ item.temp }}°C</span>
+                </div>
+                <div class="flex-1 border-l pl-4 border-gray-100">
+                    <h3 class="font-bold text-gray-800 text-lg">{{ item.title }}</h3>
+                    <p class="text-gray-500 text-sm mt-1 mb-3"><i class="fas fa-map-marker-alt mr-1"></i> {{ item.location }}</p>
+                    <a :href="getMapLink(item.location)" target="_blank" 
+                       class="tap-active inline-flex items-center bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full text-xs font-semibold hover:bg-blue-100 transition">
+                        <i class="fas fa-directions mr-1"></i> 導航前往
+                    </a>
+                </div>
+            </div>
+            
+            <button @click="addDemoItinerary" class="w-full py-3 border-2 border-dashed border-gray-300 text-gray-400 rounded-xl font-medium hover:bg-gray-50 tap-active">
+                + 新增範例行程
+            </button>
+        </div>
+
+        <div v-if="activeTab === 'map'" class="space-y-4">
+            <div class="bg-blue-600 text-white p-6 rounded-3xl shadow-lg mb-6 relative overflow-hidden">
+                <div class="relative z-10">
+                    <h2 class="text-2xl font-bold mb-2">探索周邊</h2>
+                    <p class="text-blue-100">點擊下方地點直接開啟 Google Maps 導航</p>
+                </div>
+                <i class="fas fa-map-marked-alt absolute -bottom-4 -right-4 text-8xl text-blue-500 opacity-50"></i>
+            </div>
+
+            <div v-for="(place, index) in savedPlaces" :key="index" 
+                 class="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center tap-active"
+                 @click="openMap(place.name)">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-500">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-gray-800">{{ place.name }}</h4>
+                        <p class="text-xs text-gray-500">{{ place.address }}</p>
+                    </div>
+                </div>
+                <i class="fas fa-chevron-right text-gray-300"></i>
+            </div>
+        </div>
+
+        <div v-if="activeTab === 'accounting'" class="space-y-6">
+            <div class="bg-gray-900 text-white p-6 rounded-3xl shadow-lg text-center">
+                <p class="text-gray-400 text-sm mb-1">總支出</p>
+                <div class="text-4xl font-bold font-mono">${{ totalExpense }}</div>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl shadow-sm">
+                <div class="flex gap-2 mb-2">
+                    <input v-model="newExpenseName" type="text" placeholder="項目 (例: 午餐)" class="flex-1 bg-gray-50 border-none rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <input v-model.number="newExpenseAmount" type="number" placeholder="$" class="w-20 bg-gray-50 border-none rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <button @click="addExpense" class="w-full bg-indigo-600 text-white py-2 rounded-xl font-bold shadow-md shadow-indigo-200 tap-active">
+                    記一筆
+                </button>
+            </div>
+
+            <div class="space-y-2">
+                <div v-for="(expense, index) in expenses" :key="index" class="flex justify-between items-center bg-white px-4 py-3 rounded-xl shadow-sm">
+                    <span class="text-gray-700">{{ expense.name }}</span>
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold font-mono text-gray-900">${{ expense.amount }}</span>
+                        <button @click="removeExpense(index)" class="text-red-400 text-xs"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="activeTab === 'shopping'" class="space-y-4">
+            <div class="flex gap-2">
+                <input v-model="newItem" @keyup.enter="addItem" type="text" placeholder="想買什麼？" class="flex-1 bg-white border-none rounded-xl px-4 py-3 shadow-sm focus:ring-2 focus:ring-green-500 outline-none">
+                <button @click="addItem" class="bg-green-500 text-white w-12 h-12 rounded-xl shadow-md tap-active flex items-center justify-center">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+
+            <div class="space-y-2 mt-4">
+                <div v-for="(item, index) in shoppingList" :key="index" 
+                     class="bg-white p-3 rounded-xl shadow-sm flex items-center gap-3 transition-all duration-300"
+                     :class="{'opacity-50 bg-gray-100': item.checked}">
+                    <div @click="toggleCheck(index)" class="cursor-pointer w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors"
+                         :class="item.checked ? 'bg-green-500 border-green-500' : 'border-gray-300'">
+                        <i v-if="item.checked" class="fas fa-check text-white text-xs"></i>
+                    </div>
+                    <span class="flex-1 text-lg" :class="{'line-through text-gray-400': item.checked}">{{ item.text }}</span>
+                    <button @click="removeItem(index)" class="text-gray-300 hover:text-red-500 px-2"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            
+            <div v-if="shoppingList.length === 0" class="text-center text-gray-400 mt-10">
+                <i class="fas fa-shopping-basket text-4xl mb-2 opacity-30"></i>
+                <p>清單是空的</p>
+            </div>
+        </div>
+
+    </main>
+
+    <nav class="bg-white border-t border-gray-100 px-6 py-3 flex justify-between items-center z-30">
+        <button @click="activeTab = 'schedule'" :class="activeTab === 'schedule' ? 'text-indigo-600' : 'text-gray-400'" class="flex flex-col items-center gap-1 tap-active w-12">
+            <i class="fas fa-calendar-alt text-xl"></i>
+            <span class="text-[10px] font-medium">行程</span>
+        </button>
+        <button @click="activeTab = 'map'" :class="activeTab === 'map' ? 'text-indigo-600' : 'text-gray-400'" class="flex flex-col items-center gap-1 tap-active w-12">
+            <i class="fas fa-map text-xl"></i>
+            <span class="text-[10px] font-medium">地圖</span>
+        </button>
+        <div class="w-12"></div> <button @click="activeTab = 'accounting'" :class="activeTab === 'accounting' ? 'text-indigo-600' : 'text-gray-400'" class="flex flex-col items-center gap-1 tap-active w-12">
+            <i class="fas fa-wallet text-xl"></i>
+            <span class="text-[10px] font-medium">記帳</span>
+        </button>
+        <button @click="activeTab = 'shopping'" :class="activeTab === 'shopping' ? 'text-indigo-600' : 'text-gray-400'" class="flex flex-col items-center gap-1 tap-active w-12">
+            <i class="fas fa-shopping-cart text-xl"></i>
+            <span class="text-[10px] font-medium">購物</span>
+        </button>
+    </nav>
+</div>
+
+<script>
+    const { createApp } = Vue
+
+    createApp({
+        data() {
+            return {
+                activeTab: 'schedule',
+                newExpenseName: '',
+                newExpenseAmount: '',
+                newItem: '',
+                // 模擬行程數據 (Local Storage 讀取或預設)
+                itinerary: JSON.parse(localStorage.getItem('itinerary')) || [
+                    { time: '09:00', title: '享用早餐', location: '阜杭豆漿', weather: 'sunny', temp: 24 },
+                    { time: '10:30', title: '參觀博物館', location: '國立故宮博物院', weather: 'cloudy', temp: 26 },
+                    { time: '13:00', title: '午餐時間', location: '鼎泰豐', weather: 'rainy', temp: 23 },
+                ],
+                // 模擬地點
+                savedPlaces: [
+                    { name: '台北101', address: '信義區信義路五段7號' },
+                    { name: '士林夜市', address: '士林區基河路101號' },
+                    { name: '象山步道', address: '信義區信義路五段150巷' }
+                ],
+                // 記帳數據
+                expenses: JSON.parse(localStorage.getItem('expenses')) || [],
+                // 購物清單
+                shoppingList: JSON.parse(localStorage.getItem('shoppingList')) || []
+            }
+        },
+        computed: {
+            pageTitle() {
+                const titles = {
+                    'schedule': '今日行程',
+                    'map': '地圖導航',
+                    'accounting': '旅行記帳',
+                    'shopping': '購物清單'
+                };
+                return titles[this.activeTab];
+            },
+            currentDate() {
+                return new Date().toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', weekday: 'short' });
+            },
+            totalExpense() {
+                return this.expenses.reduce((sum, item) => sum + item.amount, 0);
+            }
+        },
+        watch: {
+            // 自動儲存到 LocalStorage
+            expenses: {
+                handler(newVal) { localStorage.setItem('expenses', JSON.stringify(newVal)); },
+                deep: true
+            },
+            shoppingList: {
+                handler(newVal) { localStorage.setItem('shoppingList', JSON.stringify(newVal)); },
+                deep: true
+            },
+            itinerary: {
+                handler(newVal) { localStorage.setItem('itinerary', JSON.stringify(newVal)); },
+                deep: true
+            }
+        },
+        methods: {
+            // 天氣圖示邏輯
+            getWeatherIcon(type) {
+                const icons = {
+                    'sunny': '☀️',
+                    'cloudy': '☁️',
+                    'rainy': '🌧️',
+                    'snow': '❄️'
+                };
+                return icons[type] || '🌤️';
+            },
+            // Google Maps 導航連結
+            getMapLink(location) {
+                // 使用 Google Maps Universal Link
+                return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(location)}`;
+            },
+            openMap(location) {
+                window.open(this.getMapLink(location), '_blank');
+            },
+            // 記帳功能
+            addExpense() {
+                if (this.newExpenseName && this.newExpenseAmount) {
+                    this.expenses.unshift({
+                        name: this.newExpenseName,
+                        amount: this.newExpenseAmount
+                    });
+                    this.newExpenseName = '';
+                    this.newExpenseAmount = '';
+                }
+            },
+            removeExpense(index) {
+                this.expenses.splice(index, 1);
+            },
+            // 購物清單功能
+            addItem() {
+                if (this.newItem.trim()) {
+                    this.shoppingList.unshift({ text: this.newItem, checked: false });
+                    this.newItem = '';
+                }
+            },
+            toggleCheck(index) {
+                this.shoppingList[index].checked = !this.shoppingList[index].checked;
+            },
+            removeItem(index) {
+                this.shoppingList.splice(index, 1);
+            },
+            // 範例：新增行程
+            addDemoItinerary() {
+                this.itinerary.push({
+                    time: '18:00',
+                    title: '逛夜市',
+                    location: '饒河街觀光夜市',
+                    weather: 'cloudy',
+                    temp: 22
+                });
+            }
+        }
+    }).mount('#app')
+</script>
+</body>
+</html>
