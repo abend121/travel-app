@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>富士山之旅 V4 (完整版)</title>
+    <title>富士山之旅 V5</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700;900&display=swap" rel="stylesheet">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -15,12 +15,14 @@
                 extend: {
                     colors: {
                         'comic-blue': {
-                            50: '#EAF4FC', 100: '#D4E9FA', 200: '#A9D3F5', 300: '#7EBDF0',
-                            400: '#53A7EB', 500: '#2891E6', 600: '#2074B8', 700: '#18578A', 800: '#103A5C',
-                        }
+                            50: '#F0F9FF', 100: '#E0F2FE', 200: '#BAE6FD', 300: '#7DD3FC',
+                            400: '#38BDF8', 500: '#0EA5E9', 600: '#0284C7', 700: '#0369A1', 800: '#075985',
+                        },
+                        'card-pink': '#FFF5F7', // 信用卡色
+                        'cash-green': '#F0FDF4', // 現金色
                     },
-                    animation: {
-                        'bounce-slow': 'bounce 3s infinite',
+                    fontFamily: {
+                        sans: ['Noto Sans HK', 'sans-serif'],
                     }
                 }
             }
@@ -31,393 +33,397 @@
     
     <style>
         body {
-            font-family: 'Noto Sans HK', sans-serif;
-            background: linear-gradient(to bottom, #A9D3F5 0%, #EAF4FC 40%, #FFFFFF 100%);
+            /* 漫畫風：淡藍色富士山漸層 */
+            background: linear-gradient(180deg, #BAE6FD 0%, #F0F9FF 30%, #FFFFFF 80%);
             background-attachment: fixed;
+            -webkit-tap-highlight-color: transparent;
         }
         #app-container {
-            background-color: rgba(255, 255, 255, 0.90);
-            backdrop-filter: blur(8px);
+            /* 毛玻璃質感 */
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .tap-active:active { transform: scale(0.96); transition: transform 0.1s; }
-        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
-        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        .tap-active:active { transform: scale(0.97); transition: transform 0.1s; }
         
-        /* Checkbox 自定義樣式 */
-        .custom-checkbox:checked + div {
-            background-color: #2891E6;
-            border-color: #2891E6;
+        /* 切換開關樣式 */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #0EA5E9;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #0EA5E9;
         }
     </style>
 </head>
-<body class="min-h-screen flex justify-center">
+<body class="min-h-screen flex justify-center text-slate-800">
 
 <div id="app" class="w-full md:max-w-md flex flex-col h-screen shadow-2xl overflow-hidden relative">
     <div id="app-container" class="flex-1 flex flex-col h-full overflow-hidden">
     
-    <header class="bg-white/80 px-5 py-4 shadow-sm sticky top-0 z-20 flex justify-between items-center backdrop-blur-md">
+    <header class="bg-white/80 px-5 py-3 shadow-sm sticky top-0 z-20 flex justify-between items-center backdrop-blur-md">
         <div>
-            <h1 class="text-xl font-bold text-comic-blue-800">{{ pageTitle }}</h1>
-            <p v-if="activeTab === 'schedule'" class="text-xs text-comic-blue-400 mt-1">
-                {{ currentSelectedDateDisplay }}
+            <h1 class="text-xl font-black text-comic-blue-800 tracking-tight">{{ pageTitle }}</h1>
+            <p class="text-[10px] text-comic-blue-500 font-medium mt-0.5">
+                {{ activeTab === 'schedule' ? currentSelectedDateDisplay : 'Travel Planner' }}
             </p>
         </div>
-        <div class="text-sm text-comic-blue-600 font-bold bg-comic-blue-50 px-3 py-1 rounded-full">
+        <div class="text-xs font-bold text-comic-blue-600 bg-comic-blue-100 px-3 py-1.5 rounded-full shadow-inner">
             {{ currentDate }}
         </div>
     </header>
 
-    <main class="flex-1 overflow-y-auto no-scrollbar p-4 pb-24">
+    <main class="flex-1 overflow-y-auto no-scrollbar p-4 pb-28">
         
         <div v-if="activeTab === 'schedule'" class="space-y-4">
             
-            <div class="flex overflow-x-auto gap-3 pb-2 no-scrollbar">
+            <div class="bg-gradient-to-r from-comic-blue-500 to-comic-blue-400 rounded-3xl p-5 text-white shadow-lg relative overflow-hidden">
+                <div class="relative z-10 flex justify-between items-center">
+                    <div>
+                        <div class="text-comic-blue-100 text-xs font-bold mb-1"><i class="fas fa-map-marker-alt mr-1"></i> 當地天氣預報</div>
+                        <h2 class="text-2xl font-bold">{{ firstLocationOfDay || '未有地點資訊' }}</h2>
+                        <p class="text-sm opacity-90 mt-1">{{ getShortDate(selectedDate) }} 當日概況</p>
+                    </div>
+                    <div class="text-right">
+                         <a v-if="firstLocationOfDay" :href="getGoogleWeatherLink(firstLocationOfDay)" target="_blank" 
+                           class="inline-block bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/40 rounded-xl px-4 py-2 text-sm font-bold transition tap-active">
+                           <i class="fab fa-google mr-1"></i> Check天氣
+                        </a>
+                        <div v-else class="text-4xl opacity-50"><i class="fas fa-cloud"></i></div>
+                    </div>
+                </div>
+                <i class="fas fa-mountain absolute -bottom-4 -left-4 text-8xl text-white opacity-20"></i>
+                <i class="fas fa-cloud absolute top-2 right-20 text-6xl text-white opacity-10"></i>
+            </div>
+
+            <div class="flex overflow-x-auto gap-2 pb-1 no-scrollbar pt-2">
                 <button v-for="date in uniqueDates" :key="date" 
                     @click="selectedDate = date"
-                    class="flex-shrink-0 px-4 py-2 rounded-xl border-2 transition-all flex flex-col items-center min-w-[80px]"
-                    :class="selectedDate === date ? 'bg-comic-blue-500 border-comic-blue-500 text-white shadow-md transform scale-105' : 'bg-white border-comic-blue-100 text-comic-blue-400'">
-                    <span class="text-xs font-medium">{{ getDayLabel(date) }}</span>
-                    <span class="text-lg font-bold">{{ getShortDate(date) }}</span>
+                    class="flex-shrink-0 px-4 py-2 rounded-2xl border-2 transition-all flex flex-col items-center min-w-[75px]"
+                    :class="selectedDate === date ? 'bg-comic-blue-600 border-comic-blue-600 text-white shadow-md transform scale-105' : 'bg-white border-comic-blue-100 text-comic-blue-400'">
+                    <span class="text-[10px] font-bold opacity-80">{{ getDayLabel(date) }}</span>
+                    <span class="text-lg font-black">{{ getShortDate(date) }}</span>
                 </button>
             </div>
 
-            <div v-if="filteredItinerary.length === 0" class="text-center text-comic-blue-300 mt-16 py-10 bg-white/50 rounded-3xl border-2 border-dashed border-comic-blue-100">
-                <i class="fas fa-calendar-plus text-5xl mb-4 opacity-40"></i>
-                <p class="font-medium">呢日暫時未有行程<br>加啲活動填滿佢啦！</p>
+            <div v-if="filteredItinerary.length === 0" class="text-center text-comic-blue-300 mt-10 py-8 border-2 border-dashed border-comic-blue-200 rounded-3xl">
+                <p class="font-bold">今日好得閒</p>
+                <p class="text-xs mt-1">撳右下角加行程啦</p>
             </div>
 
-            <div v-for="(item, index) in filteredItinerary" :key="item.id" class="bg-white p-4 rounded-3xl shadow-sm border-2 border-comic-blue-50 flex items-start gap-4 relative group transition-all hover:shadow-md">
-                <button @click="deleteItinerary(item.id)" class="absolute top-3 right-3 text-gray-300 hover:text-red-500 p-1">
-                    <i class="fas fa-times"></i>
-                </button>
+            <div v-for="(item, index) in filteredItinerary" :key="item.id" 
+                 class="bg-white p-4 rounded-3xl shadow-sm border border-comic-blue-100 flex items-start gap-4 relative group transition-all hover:shadow-md">
+                <button @click="deleteItinerary(item.id)" class="absolute top-3 right-3 text-gray-200 hover:text-red-400 p-2"><i class="fas fa-times"></i></button>
 
-                <div class="flex flex-col items-center min-w-[60px]">
-                    <span class="text-lg font-bold text-comic-blue-500">{{ item.time }}</span>
-                    <div class="mt-2 text-3xl drop-shadow-sm">{{ getWeatherIcon(item.weather) }}</div>
+                <div class="flex flex-col items-center min-w-[55px] pt-1">
+                    <span class="text-lg font-black text-comic-blue-600">{{ item.time }}</span>
+                    <div class="mt-1 text-2xl filter drop-shadow-sm">{{ getWeatherIcon(item.weather) }}</div>
                 </div>
-                <div class="flex-1 border-l-2 pl-4 border-comic-blue-100 pr-6">
-                    <h3 class="font-bold text-comic-blue-800 text-lg">{{ item.title }}</h3>
-                    <p class="text-comic-blue-400 text-sm mt-1 mb-3 flex items-center"><i class="fas fa-map-marker-alt mr-2"></i> {{ item.location }}</p>
+                <div class="flex-1 border-l-2 pl-4 border-comic-blue-50 pr-6">
+                    <h3 class="font-bold text-slate-700 text-lg leading-tight">{{ item.title }}</h3>
+                    <p class="text-slate-400 text-xs mt-1 mb-3 flex items-center font-medium"><i class="fas fa-map-pin mr-1.5 text-comic-blue-400"></i> {{ item.location }}</p>
                     <a :href="getMapLink(item.location)" target="_blank" 
-                       class="tap-active inline-flex items-center bg-comic-blue-50 text-comic-blue-600 px-4 py-2 rounded-full text-xs font-bold hover:bg-comic-blue-100 transition">
-                        <i class="fas fa-location-arrow mr-2"></i> 帶我去
+                       class="tap-active inline-flex items-center bg-comic-blue-50 text-comic-blue-600 px-3 py-1.5 rounded-lg text-[11px] font-bold hover:bg-comic-blue-100 transition">
+                        <i class="fas fa-location-arrow mr-1.5"></i> 導航
                     </a>
                 </div>
             </div>
         </div>
 
         <div v-if="activeTab === 'checklist'" class="space-y-4">
-            <div class="bg-gradient-to-r from-emerald-400 to-teal-500 text-white p-6 rounded-3xl shadow-lg relative overflow-hidden">
-                <div class="relative z-10">
-                    <h2 class="text-2xl font-bold mb-1">行前準備</h2>
-                    <p class="text-emerald-50">執行李、買保險、換錢...</p>
-                    <div class="mt-4 bg-white/20 h-2 rounded-full overflow-hidden">
-                        <div class="bg-white h-full transition-all duration-500" :style="{width: checklistProgress + '%'}"></div>
-                    </div>
-                    <p class="text-xs text-right mt-1">{{ checklistProgress }}% 完成</p>
+             <div class="bg-white p-5 rounded-3xl shadow-sm border border-comic-blue-100">
+                <div class="flex justify-between items-end mb-2">
+                    <h2 class="font-bold text-lg text-comic-blue-800">準備進度</h2>
+                    <span class="text-comic-blue-500 font-bold text-xl">{{ checklistProgress }}%</span>
                 </div>
-                <i class="fas fa-suitcase-rolling absolute -bottom-2 -right-2 text-8xl text-white opacity-20 rotate-[-10deg]"></i>
+                <div class="w-full bg-comic-blue-50 rounded-full h-3">
+                    <div class="bg-comic-blue-500 h-3 rounded-full transition-all duration-500" :style="{width: checklistProgress + '%'}"></div>
+                </div>
+            </div>
+            
+            <div class="space-y-2">
+                <div v-for="(item, index) in checklist" :key="item.id" class="bg-white p-4 rounded-2xl shadow-sm border flex items-center gap-3 transition-all" :class="item.checked ? 'border-transparent bg-slate-50 opacity-60' : 'border-comic-blue-100'">
+                    <div @click="item.checked = !item.checked" class="cursor-pointer w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors" :class="item.checked ? 'bg-comic-blue-500 border-comic-blue-500' : 'border-slate-300 bg-white'">
+                        <i v-if="item.checked" class="fas fa-check text-white text-xs"></i>
+                    </div>
+                    <span class="flex-1 font-medium" :class="item.checked ? 'line-through text-slate-400' : 'text-slate-700'">{{ item.text }}</span>
+                    <button @click="removeChecklistItem(index)" class="text-slate-200 hover:text-red-400 px-2"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="activeTab === 'accounting'" class="space-y-5">
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-3xl shadow-lg text-white relative overflow-hidden">
+                    <p class="text-emerald-100 text-[10px] font-bold mb-1"><i class="fas fa-money-bill-wave mr-1"></i> 現金支出 (HKD)</p>
+                    <div class="text-2xl font-black font-mono">${{ formatNumber(totalCashHKD) }}</div>
+                    <i class="fas fa-coins absolute -bottom-2 -right-2 text-5xl text-white opacity-20"></i>
+                </div>
+                <div class="bg-gradient-to-br from-rose-500 to-rose-600 p-4 rounded-3xl shadow-lg text-white relative overflow-hidden">
+                    <p class="text-rose-100 text-[10px] font-bold mb-1"><i class="fas fa-credit-card mr-1"></i> 信用卡 (HKD)</p>
+                    <div class="text-2xl font-black font-mono">${{ formatNumber(totalCardHKD) }}</div>
+                    <i class="fab fa-cc-visa absolute -bottom-2 -right-2 text-5xl text-white opacity-20"></i>
+                </div>
             </div>
 
-            <div class="space-y-3">
-                <div v-for="(item, index) in checklist" :key="item.id" 
-                     class="bg-white p-4 rounded-2xl shadow-sm border-2 flex items-center gap-4 transition-all"
-                     :class="item.checked ? 'border-gray-100 bg-gray-50 opacity-70' : 'border-comic-blue-100'">
-                    
-                    <label class="relative flex items-center p-2 rounded-full cursor-pointer tap-active">
-                        <input type="checkbox" v-model="item.checked" class="peer sr-only">
-                        <div class="w-6 h-6 border-2 border-comic-blue-300 rounded-lg peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition-all flex items-center justify-center">
-                            <i class="fas fa-check text-white text-xs opacity-0 peer-checked:opacity-100"></i>
-                        </div>
-                    </label>
-
-                    <span class="flex-1 text-lg font-medium" :class="item.checked ? 'line-through text-gray-400' : 'text-comic-blue-800'">{{ item.text }}</span>
-                    <button @click="removeChecklistItem(index)" class="text-gray-300 hover:text-red-400 px-2"><i class="fas fa-trash"></i></button>
+            <div class="bg-white px-4 py-3 rounded-2xl border border-comic-blue-100 flex items-center justify-between shadow-sm">
+                <span class="text-xs font-bold text-comic-blue-500">匯率設定 (JPY → HKD)</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-400">1 日圓 = </span>
+                    <input type="number" v-model="exchangeRate" class="w-16 bg-comic-blue-50 text-comic-blue-800 font-bold text-center rounded-lg py-1 border-none outline-none focus:ring-2 focus:ring-comic-blue-300">
+                    <span class="text-xs text-gray-400">港幣</span>
                 </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-comic-blue-50 relative">
+                <h3 class="text-sm font-bold text-comic-blue-800 mb-3">新增消費</h3>
                 
-                <div v-if="checklist.length === 0" class="text-center text-comic-blue-300 mt-10">
-                    <p>所有嘢都準備好晒？<br>撳下面加個 Reminder 啦</p>
+                <div class="flex gap-3 mb-3">
+                    <input v-model="newExpenseName" placeholder="買咗咩？" class="flex-[2] bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-comic-blue-400">
+                    <input v-model.number="newExpenseAmount" type="number" placeholder="$" class="flex-1 bg-slate-50 border-none rounded-xl px-2 py-3 text-center font-mono font-bold outline-none focus:ring-2 focus:ring-comic-blue-400">
+                </div>
+
+                <div class="flex gap-3 mb-4">
+                     <select v-model="newExpenseCurrency" class="bg-slate-50 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none border-r-8 border-transparent">
+                        <option value="JPY">🇯🇵 JPY</option>
+                        <option value="HKD">🇭🇰 HKD</option>
+                    </select>
+
+                    <div class="flex bg-slate-100 p-1 rounded-xl flex-1">
+                        <button @click="newExpenseMethod = 'cash'" :class="newExpenseMethod === 'cash' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-400'" class="flex-1 rounded-lg text-xs font-bold transition-all py-2"><i class="fas fa-money-bill mr-1"></i> 現金</button>
+                        <button @click="newExpenseMethod = 'card'" :class="newExpenseMethod === 'card' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-400'" class="flex-1 rounded-lg text-xs font-bold transition-all py-2"><i class="fas fa-credit-card mr-1"></i> 卡數</button>
+                    </div>
+                </div>
+
+                <button @click="addExpense" class="w-full bg-comic-blue-600 text-white py-3 rounded-xl font-bold shadow-md shadow-comic-blue-200 tap-active hover:bg-comic-blue-700 transition">
+                    記低佢
+                </button>
+            </div>
+
+            <div class="space-y-2">
+                <div v-for="(expense, index) in expenses" :key="index" class="flex justify-between items-center bg-white px-4 py-3 rounded-2xl shadow-sm border-l-4"
+                     :class="expense.method === 'card' ? 'border-l-rose-400' : 'border-l-emerald-400'">
+                    <div class="flex flex-col">
+                        <span class="text-slate-700 font-bold text-sm">{{ expense.name }}</span>
+                        <span class="text-[10px] text-slate-400">
+                            <i :class="expense.method === 'card' ? 'fas fa-credit-card' : 'fas fa-money-bill'"></i>
+                            {{ expense.method === 'card' ? '信用卡' : '現金' }}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-right">
+                            <div class="font-mono font-black text-slate-800">
+                                <span class="text-xs mr-1">{{ expense.currency }}</span>{{ expense.amount }}
+                            </div>
+                            <div v-if="expense.currency === 'JPY'" class="text-[10px] text-slate-400 font-mono">
+                                ≈ HK${{ Math.round(expense.amount * exchangeRate) }}
+                            </div>
+                        </div>
+                        <button @click="removeExpense(index)" class="text-slate-200 hover:text-red-400 text-xs px-1"><i class="fas fa-trash"></i></button>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div v-if="activeTab === 'map'" class="space-y-4">
-            <div class="bg-blue-600 text-white p-6 rounded-3xl shadow-lg mb-6 relative overflow-hidden">
-                <div class="relative z-10">
-                    <h2 class="text-2xl font-bold">心水地點</h2>
-                    <p class="text-blue-100">Save定啲必去景點</p>
-                </div>
+            <div class="bg-blue-600 text-white p-6 rounded-3xl shadow-lg relative overflow-hidden">
+                <h2 class="text-xl font-bold z-10 relative">心水地點</h2>
                 <i class="fas fa-map-marked-alt absolute -bottom-4 -right-4 text-8xl opacity-20"></i>
             </div>
-            <div class="flex gap-2 mb-4">
-                <input v-model="newPlaceName" placeholder="地點名稱" class="flex-1 p-3 rounded-2xl border-2 border-comic-blue-50 outline-none focus:ring-2 focus:ring-comic-blue-300">
-                <button @click="addPlace" class="bg-comic-blue-500 text-white px-5 rounded-2xl shadow-md tap-active"><i class="fas fa-plus"></i></button>
-            </div>
-            <div v-for="(place, index) in savedPlaces" :key="index" class="bg-white p-4 rounded-3xl shadow-sm border-2 border-comic-blue-50 flex justify-between items-center tap-active" @click="openMap(place.name)">
-                 <div class="flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-full bg-comic-blue-100 flex items-center justify-center text-comic-blue-500"><i class="fas fa-map-pin"></i></div>
-                    <h4 class="font-bold text-comic-blue-800">{{ place.name }}</h4>
-                </div>
-                <button @click.stop="removePlace(index)" class="text-gray-300 hover:text-red-500 px-3"><i class="fas fa-trash-alt"></i></button>
-            </div>
-        </div>
-
-        <div v-if="activeTab === 'accounting'" class="space-y-6">
-            <div class="bg-comic-blue-800 text-white p-6 rounded-3xl shadow-lg text-center">
-                <p class="text-comic-blue-200 text-sm mb-1">總共使咗 (HKD)</p>
-                <div class="text-4xl font-bold font-mono">HK${{ totalExpense }}</div>
-            </div>
-            <div class="bg-white p-4 rounded-2xl border-2 border-comic-blue-100 flex items-center gap-2">
-                <input type="number" v-model="currencyAmount" placeholder="日圓 ¥" class="w-1/3 bg-gray-50 p-2 rounded-lg text-center outline-none">
-                <span class="text-gray-400">x</span>
-                <input type="number" v-model="exchangeRate" class="w-1/4 bg-gray-50 p-2 rounded-lg text-center outline-none">
-                <span class="text-gray-400">=</span>
-                <span class="font-bold text-comic-blue-600 text-lg flex-1 text-right">HK${{ calculatedCurrency }}</span>
-            </div>
             <div class="flex gap-2">
-                <input v-model="newExpenseName" placeholder="項目" class="flex-1 p-3 rounded-2xl border-2 border-comic-blue-50 outline-none">
-                <input v-model.number="newExpenseAmount" placeholder="$" type="number" class="w-24 p-3 rounded-2xl border-2 border-comic-blue-50 outline-none text-center">
-                <button @click="addExpense" class="bg-comic-blue-500 text-white px-4 rounded-2xl tap-active">記</button>
+                <input v-model="newPlaceName" placeholder="地點名稱" class="flex-1 p-3 rounded-xl border border-comic-blue-100 outline-none">
+                <button @click="addPlace" class="bg-comic-blue-500 text-white px-4 rounded-xl"><i class="fas fa-plus"></i></button>
             </div>
-            <div class="space-y-2">
-                <div v-for="(expense, index) in expenses" :key="index" class="flex justify-between p-3 bg-white rounded-xl shadow-sm border border-comic-blue-50">
-                    <span>{{ expense.name }}</span>
-                    <div class="flex gap-3"><span class="font-mono font-bold text-comic-blue-600">${{ expense.amount }}</span><i @click="removeExpense(index)" class="fas fa-trash text-gray-300"></i></div>
-                </div>
+            <div v-for="(place, index) in savedPlaces" :key="index" class="bg-white p-4 rounded-2xl shadow-sm flex justify-between items-center" @click="openMap(place.name)">
+                <div class="flex items-center gap-3"><i class="fas fa-map-pin text-comic-blue-500"></i> <span class="font-bold">{{ place.name }}</span></div>
+                <button @click.stop="removePlace(index)" class="text-gray-300"><i class="fas fa-trash-alt"></i></button>
             </div>
         </div>
 
         <div v-if="activeTab === 'shopping'" class="space-y-4">
-            <div class="flex gap-2">
-                <input v-model="newItem" @keyup.enter="addItem" placeholder="想買咩？" class="flex-1 p-3 rounded-2xl border-2 border-comic-blue-50 outline-none">
-                <button @click="addItem" class="bg-comic-blue-400 text-white w-12 rounded-2xl tap-active"><i class="fas fa-plus"></i></button>
+             <div class="flex gap-2">
+                <input v-model="newItem" @keyup.enter="addItem" placeholder="想買咩？" class="flex-1 p-3 rounded-xl border border-comic-blue-100 outline-none">
+                <button @click="addItem" class="bg-comic-blue-500 text-white w-12 rounded-xl"><i class="fas fa-plus"></i></button>
             </div>
-            <div class="space-y-2 mt-4">
-                <div v-for="(item, index) in shoppingList" :key="index" class="bg-white p-3 rounded-xl shadow-sm flex gap-3 items-center">
-                     <div @click="item.checked = !item.checked" class="w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer" :class="item.checked ? 'bg-comic-blue-400 border-comic-blue-400' : 'border-gray-300'"><i v-if="item.checked" class="fas fa-check text-white text-xs"></i></div>
-                     <span class="flex-1" :class="{'line-through text-gray-400': item.checked}">{{ item.text }}</span>
-                     <i @click="removeItem(index)" class="fas fa-times text-gray-300"></i>
-                </div>
+            <div v-for="(item, index) in shoppingList" :key="index" class="bg-white p-3 rounded-xl shadow-sm flex gap-3 items-center">
+                 <div @click="item.checked = !item.checked" class="w-6 h-6 rounded-full border-2 flex items-center justify-center cursor-pointer" :class="item.checked ? 'bg-comic-blue-400 border-comic-blue-400' : 'border-gray-300'"><i v-if="item.checked" class="fas fa-check text-white text-xs"></i></div>
+                 <span class="flex-1" :class="{'line-through text-gray-400': item.checked}">{{ item.text }}</span>
+                 <i @click="removeItem(index)" class="fas fa-times text-gray-300"></i>
             </div>
         </div>
 
     </main>
 
     <button v-if="activeTab === 'schedule'" @click="openScheduleModal" 
-        class="absolute bottom-24 right-6 bg-comic-blue-500 text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-2xl tap-active z-10 hover:bg-comic-blue-600 transition animate-bounce-slow border-4 border-white">
+        class="absolute bottom-28 right-6 bg-comic-blue-600 text-white w-14 h-14 rounded-2xl shadow-xl shadow-comic-blue-300 flex items-center justify-center text-xl tap-active z-10 hover:bg-comic-blue-700 transition border-2 border-white/50">
         <i class="fas fa-plus"></i>
     </button>
-    
-    <button v-if="activeTab === 'checklist'" @click="openChecklistModal" 
-        class="absolute bottom-24 right-6 bg-emerald-500 text-white w-16 h-16 rounded-full shadow-lg flex items-center justify-center text-2xl tap-active z-10 hover:bg-emerald-600 transition border-4 border-white">
-        <i class="fas fa-plus"></i>
-    </button>
+    <button v-if="activeTab === 'checklist'" @click="modals.checklist = true" class="absolute bottom-28 right-6 bg-emerald-500 text-white w-14 h-14 rounded-2xl shadow-xl flex items-center justify-center text-xl tap-active z-10 border-2 border-white/50"><i class="fas fa-plus"></i></button>
 
     <transition name="fade">
-        <div v-if="modals.schedule" class="absolute inset-0 bg-comic-blue-800/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+        <div v-if="modals.schedule" class="absolute inset-0 bg-comic-blue-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6">
             <div class="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl">
-                <h3 class="text-xl font-bold mb-4 text-center">加個新行程</h3>
+                <h3 class="text-lg font-bold mb-4 text-center">新增行程</h3>
                 <div class="space-y-3">
-                    <div>
-                        <label class="text-xs font-bold text-comic-blue-500 ml-2">日期</label>
-                        <input v-model="scheduleForm.date" type="date" class="w-full bg-comic-blue-50 p-3 rounded-xl outline-none font-bold text-comic-blue-800">
-                    </div>
+                    <input v-model="scheduleForm.date" type="date" class="w-full bg-slate-50 p-3 rounded-xl outline-none font-bold text-slate-700">
                     <div class="flex gap-2">
-                        <div class="flex-1">
-                            <label class="text-xs font-bold text-comic-blue-500 ml-2">時間</label>
-                            <input v-model="scheduleForm.time" type="time" class="w-full bg-comic-blue-50 p-3 rounded-xl outline-none font-bold">
-                        </div>
-                        <div class="flex-1">
-                            <label class="text-xs font-bold text-comic-blue-500 ml-2">天氣</label>
-                            <div class="flex bg-comic-blue-50 rounded-xl overflow-hidden h-[46px]">
-                                <button v-for="w in ['sunny','rainy']" :key="w" @click="scheduleForm.weather = w" 
-                                    class="flex-1 flex items-center justify-center text-xl transition"
-                                    :class="scheduleForm.weather === w ? 'bg-comic-blue-200' : ''">
-                                    {{ getWeatherIcon(w) }}
-                                </button>
-                            </div>
-                        </div>
+                        <input v-model="scheduleForm.time" type="time" class="flex-1 bg-slate-50 p-3 rounded-xl outline-none font-bold">
+                        <select v-model="scheduleForm.weather" class="flex-1 bg-slate-50 p-3 rounded-xl outline-none">
+                            <option value="sunny">☀️ 晴</option>
+                            <option value="cloudy">☁️ 陰</option>
+                            <option value="rainy">🌧️ 雨</option>
+                            <option value="snow">❄️ 雪</option>
+                        </select>
                     </div>
-                    <div>
-                        <label class="text-xs font-bold text-comic-blue-500 ml-2">活動標題</label>
-                        <input v-model="scheduleForm.title" type="text" class="w-full bg-comic-blue-50 p-3 rounded-xl outline-none">
-                    </div>
-                    <div>
-                        <label class="text-xs font-bold text-comic-blue-500 ml-2">地點</label>
-                        <input v-model="scheduleForm.location" type="text" class="w-full bg-comic-blue-50 p-3 rounded-xl outline-none">
-                    </div>
+                    <input v-model="scheduleForm.title" type="text" placeholder="標題" class="w-full bg-slate-50 p-3 rounded-xl outline-none">
+                    <input v-model="scheduleForm.location" type="text" placeholder="地點 (重要！用於天氣)" class="w-full bg-slate-50 p-3 rounded-xl outline-none">
                 </div>
                 <div class="flex gap-3 mt-6">
-                    <button @click="modals.schedule = false" class="flex-1 py-3 text-gray-500 bg-gray-100 rounded-xl">取消</button>
-                    <button @click="submitSchedule" class="flex-1 py-3 bg-comic-blue-500 text-white font-bold rounded-xl shadow-md">確認</button>
+                    <button @click="modals.schedule = false" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold text-slate-500">取消</button>
+                    <button @click="submitSchedule" class="flex-1 py-3 bg-comic-blue-500 text-white font-bold rounded-xl shadow-lg">確認</button>
                 </div>
             </div>
         </div>
     </transition>
 
-    <transition name="fade">
-        <div v-if="modals.checklist" class="absolute inset-0 bg-emerald-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+     <transition name="fade">
+        <div v-if="modals.checklist" class="absolute inset-0 bg-emerald-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6">
             <div class="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl">
-                <h3 class="text-xl font-bold mb-4 text-center text-emerald-700">準備清單</h3>
-                <input v-model="checklistForm.text" placeholder="例：買旅遊保險" class="w-full bg-emerald-50 p-4 rounded-xl outline-none focus:ring-2 focus:ring-emerald-300 mb-4" @keyup.enter="submitChecklist">
+                <h3 class="text-lg font-bold mb-4 text-center">新增準備事項</h3>
+                <input v-model="checklistForm.text" placeholder="事項..." class="w-full bg-slate-50 p-4 rounded-xl outline-none mb-4" @keyup.enter="submitChecklist">
                 <div class="flex gap-3">
-                    <button @click="modals.checklist = false" class="flex-1 py-3 text-gray-500 bg-gray-100 rounded-xl">取消</button>
-                    <button @click="submitChecklist" class="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow-md">加入</button>
+                    <button @click="modals.checklist = false" class="flex-1 py-3 bg-slate-100 rounded-xl font-bold text-slate-500">取消</button>
+                    <button @click="submitChecklist" class="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl">加入</button>
                 </div>
             </div>
         </div>
     </transition>
 
-    <nav class="bg-white/90 border-t border-comic-blue-100 px-2 py-2 flex justify-between items-center z-30 pb-safe backdrop-blur-md">
+    <nav class="bg-white/80 border-t border-comic-blue-100 px-4 py-2 flex justify-between items-center z-30 pb-safe backdrop-blur-md">
         <button v-for="tab in tabs" :key="tab.id" @click="activeTab = tab.id" 
-                :class="activeTab === tab.id ? 'text-comic-blue-600 bg-comic-blue-50' : 'text-gray-400'" 
-                class="flex flex-col items-center justify-center w-16 h-14 rounded-xl tap-active transition-all">
-            <i :class="tab.icon + ' text-lg mb-1'"></i>
-            <span class="text-[10px] font-bold">{{ tab.label }}</span>
+                :class="activeTab === tab.id ? 'text-comic-blue-600 bg-blue-50' : 'text-slate-400'" 
+                class="flex flex-col items-center justify-center w-14 h-14 rounded-2xl tap-active transition-all duration-300">
+            <i :class="tab.icon + ' text-lg mb-0.5'"></i>
+            <span class="text-[9px] font-bold">{{ tab.label }}</span>
         </button>
     </nav>
-
     </div>
 </div>
 
 <script>
     const { createApp } = Vue
+    const today = new Date().toISOString().split('T')[0];
 
     createApp({
         data() {
-            // 初始化今天的日期字串 YYYY-MM-DD
-            const today = new Date().toISOString().split('T')[0];
-
             return {
                 activeTab: 'schedule',
-                // 狀態管理 Modals
                 modals: { schedule: false, checklist: false },
-                
-                // --- 行程資料 (V4) ---
                 selectedDate: today,
+                // Data
                 scheduleForm: { date: today, time: '09:00', title: '', location: '', weather: 'sunny' },
-                itinerary: JSON.parse(localStorage.getItem('itinerary_v4')) || [
-                    { id: 1, date: today, time: '10:00', title: '抵達機場', location: '成田機場', weather: 'sunny' }
-                ],
+                itinerary: JSON.parse(localStorage.getItem('itinerary_v5')) || [{ id: 1, date: today, time: '10:00', title: '抵達東京', location: '成田機場', weather: 'sunny' }],
                 
-                // --- 準備清單 (V4) ---
                 checklistForm: { text: '' },
-                checklist: JSON.parse(localStorage.getItem('checklist_v4')) || [
-                    { id: 1, text: '檢查護照有效期', checked: false },
-                    { id: 2, text: '買Sim卡 / Roaming', checked: true }
-                ],
+                checklist: JSON.parse(localStorage.getItem('checklist_v5')) || [{ id: 1, text: 'Passport', checked: false }],
+                
+                // Accounting Data (V5 Updated)
+                newExpenseName: '', newExpenseAmount: '', newExpenseCurrency: 'JPY', newExpenseMethod: 'cash',
+                exchangeRate: 0.052,
+                expenses: JSON.parse(localStorage.getItem('expenses_v5')) || [],
 
-                // --- 其他舊有資料 ---
-                savedPlaces: JSON.parse(localStorage.getItem('places_v3')) || [],
-                newPlaceName: '',
-                expenses: JSON.parse(localStorage.getItem('expenses_v3')) || [],
-                newExpenseName: '', newExpenseAmount: '',
-                currencyAmount: '', exchangeRate: 0.052,
-                shoppingList: JSON.parse(localStorage.getItem('shoppingList_v3')) || [],
-                newItem: '',
+                savedPlaces: JSON.parse(localStorage.getItem('places_v3')) || [], newPlaceName: '',
+                shoppingList: JSON.parse(localStorage.getItem('shoppingList_v3')) || [], newItem: '',
                 
                 tabs: [
                     { id: 'schedule', label: '行程', icon: 'fas fa-plane' },
-                    { id: 'checklist', label: '準備', icon: 'fas fa-tasks' },
-                    { id: 'map', label: '地圖', icon: 'fas fa-map' },
+                    { id: 'checklist', label: '準備', icon: 'fas fa-clipboard-check' },
                     { id: 'accounting', label: '記帳', icon: 'fas fa-wallet' },
-                    { id: 'shopping', label: '購物', icon: 'fas fa-shopping-bag' }
+                    { id: 'shopping', label: '購物', icon: 'fas fa-shopping-bag' },
+                    { id: 'map', label: '地圖', icon: 'fas fa-map' },
                 ]
             }
         },
         computed: {
-            pageTitle() {
-                const map = { 'schedule': '旅遊計劃', 'checklist': '行前準備', 'map': '心水地點', 'accounting': '使費紀錄', 'shopping': '購物清單' };
-                return map[this.activeTab];
-            },
-            currentDate() { return new Date().toLocaleDateString('zh-HK', { month: 'numeric', day: 'numeric' }); },
-            
-            // --- 行程計算屬性 ---
-            // 找出所有有行程的日期，並排序 + 加上今天 (如果還沒有行程的話)
+            pageTitle() { const m={'schedule':'My Trip','checklist':'Checklist','accounting':'Wallet','shopping':'Shopping','map':'Places'}; return m[this.activeTab]; },
+            currentDate() { return new Date().toLocaleDateString('zh-HK', { month: 'short', day: 'numeric' }); },
             uniqueDates() {
                 const dates = new Set(this.itinerary.map(i => i.date));
-                if (!dates.has(this.selectedDate)) dates.add(this.selectedDate); // 確保當前選中的日期在列表裡
+                if (!dates.has(this.selectedDate)) dates.add(this.selectedDate);
                 return Array.from(dates).sort();
             },
-            // 過濾出目前選中日期的行程
-            filteredItinerary() {
-                return this.itinerary.filter(i => i.date === this.selectedDate).sort((a,b) => a.time.localeCompare(b.time));
-            },
-            currentSelectedDateDisplay() {
-                const d = new Date(this.selectedDate);
-                return `行程：${d.getMonth()+1}月${d.getDate()}日 (${['日','一','二','三','四','五','六'][d.getDay()]})`;
-            },
+            filteredItinerary() { return this.itinerary.filter(i => i.date === this.selectedDate).sort((a,b) => a.time.localeCompare(b.time)); },
+            currentSelectedDateDisplay() { const d=new Date(this.selectedDate); return `${d.getMonth()+1}/${d.getDate()} (${['日','一','二','三','四','五','六'][d.getDay()]})`; },
+            checklistProgress() { if(this.checklist.length===0)return 0; return Math.round((this.checklist.filter(i=>i.checked).length/this.checklist.length)*100); },
             
-            // --- 準備清單進度 ---
-            checklistProgress() {
-                if (this.checklist.length === 0) return 0;
-                const completed = this.checklist.filter(i => i.checked).length;
-                return Math.round((completed / this.checklist.length) * 100);
+            // --- Weather Logic ---
+            firstLocationOfDay() {
+                const list = this.filteredItinerary;
+                return list.length > 0 ? list[0].location : null;
             },
 
-            // --- 其他 ---
-            totalExpense() { return this.expenses.reduce((sum, item) => sum + item.amount, 0); },
-            calculatedCurrency() { return Math.round(this.currencyAmount * this.exchangeRate * 10) / 10; },
+            // --- Accounting Logic (V5) ---
+            totalCashHKD() {
+                return this.expenses.filter(e => e.method === 'cash').reduce((sum, e) => {
+                    const amountHKD = e.currency === 'JPY' ? e.amount * this.exchangeRate : e.amount;
+                    return sum + amountHKD;
+                }, 0);
+            },
+            totalCardHKD() {
+                return this.expenses.filter(e => e.method === 'card').reduce((sum, e) => {
+                    const amountHKD = e.currency === 'JPY' ? e.amount * this.exchangeRate : e.amount;
+                    return sum + amountHKD;
+                }, 0);
+            }
         },
         watch: {
-            itinerary: { handler(v) { localStorage.setItem('itinerary_v4', JSON.stringify(v)); }, deep: true },
-            checklist: { handler(v) { localStorage.setItem('checklist_v4', JSON.stringify(v)); }, deep: true },
-            // 保持舊資料兼容
-            expenses: { handler(v) { localStorage.setItem('expenses_v3', JSON.stringify(v)); }, deep: true },
+            itinerary: { handler(v) { localStorage.setItem('itinerary_v5', JSON.stringify(v)); }, deep: true },
+            checklist: { handler(v) { localStorage.setItem('checklist_v5', JSON.stringify(v)); }, deep: true },
+            expenses: { handler(v) { localStorage.setItem('expenses_v5', JSON.stringify(v)); }, deep: true },
             savedPlaces: { handler(v) { localStorage.setItem('places_v3', JSON.stringify(v)); }, deep: true },
             shoppingList: { handler(v) { localStorage.setItem('shoppingList_v3', JSON.stringify(v)); }, deep: true }
         },
         methods: {
-            // Helper
-            getWeatherIcon(t) { const i = { 'sunny':'☀️', 'cloudy':'☁️', 'rainy':'🌧️' }; return i[t]||'🌤️'; },
-            getShortDate(dateStr) { const d = new Date(dateStr); return `${d.getMonth()+1}/${d.getDate()}`; },
-            getDayLabel(dateStr) {
-                 const day = new Date(dateStr).getDay();
-                 return ['週日','週一','週二','週三','週四','週五','週六'][day];
+            getWeatherIcon(t) { const i={'sunny':'☀️','cloudy':'☁️','rainy':'🌧️','snow':'❄️'}; return i[t]||'🌤️'; },
+            getShortDate(d) { const date = new Date(d); return `${date.getMonth()+1}/${date.getDate()}`; },
+            getDayLabel(d) { return ['週日','週一','週二','週三','週四','週五','週六'][new Date(d).getDay()]; },
+            getMapLink(l) { return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l)}`; },
+            // V5: Google Weather Link Generator
+            getGoogleWeatherLink(location) {
+                // 產生 Google Weather 查詢連結
+                const query = `weather ${location}`;
+                return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
             },
-            getMapLink(loc) { return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`; },
-            openMap(loc) { window.open(this.getMapLink(loc), '_blank'); },
-
-            // --- 行程邏輯 ---
-            openScheduleModal() {
-                // 打開 Modal 時，預設日期設為目前查看的日期
-                this.scheduleForm.date = this.selectedDate;
-                this.modals.schedule = true;
-            },
-            submitSchedule() {
-                if(this.scheduleForm.title) {
-                    this.itinerary.push({ ...this.scheduleForm, id: Date.now() });
-                    // 如果新增的日期不是當前選的，自動切換過去方便查看
-                    this.selectedDate = this.scheduleForm.date;
-                    this.modals.schedule = false;
-                    // Reset text but keep date
-                    this.scheduleForm.title = ''; this.scheduleForm.location = '';
+            formatNumber(num) { return Math.round(num).toLocaleString(); },
+            
+            openScheduleModal() { this.scheduleForm.date = this.selectedDate; this.modals.schedule = true; },
+            submitSchedule() { if(this.scheduleForm.title){ this.itinerary.push({...this.scheduleForm, id:Date.now()}); this.selectedDate=this.scheduleForm.date; this.modals.schedule=false; this.scheduleForm.title=''; this.scheduleForm.location=''; } },
+            deleteItinerary(id) { if(confirm('Del?')) this.itinerary = this.itinerary.filter(i=>i.id!==id); },
+            
+            submitChecklist() { if(this.checklistForm.text){ this.checklist.push({id:Date.now(), text:this.checklistForm.text, checked:false}); this.checklistForm.text=''; this.modals.checklist=false; } },
+            removeChecklistItem(i) { this.checklist.splice(i,1); },
+            
+            // V5: Add Expense with Currency & Method
+            addExpense() {
+                if(this.newExpenseName && this.newExpenseAmount) {
+                    this.expenses.unshift({
+                        name: this.newExpenseName,
+                        amount: this.newExpenseAmount,
+                        currency: this.newExpenseCurrency,
+                        method: this.newExpenseMethod
+                    });
+                    this.newExpenseName=''; this.newExpenseAmount='';
                 }
             },
-            deleteItinerary(id) {
-                if(confirm('刪除呢個行程？')) this.itinerary = this.itinerary.filter(i => i.id !== id);
-            },
-
-            // --- 準備清單邏輯 ---
-            openChecklistModal() { this.modals.checklist = true; },
-            submitChecklist() {
-                if(this.checklistForm.text) {
-                    this.checklist.push({ id: Date.now(), text: this.checklistForm.text, checked: false });
-                    this.checklistForm.text = '';
-                    this.modals.checklist = false;
-                }
-            },
-            removeChecklistItem(index) { this.checklist.splice(index, 1); },
-
-            // --- 其他邏輯 (保持不變) ---
-            addPlace() { if(this.newPlaceName) { this.savedPlaces.push({name:this.newPlaceName}); this.newPlaceName=''; } },
-            removePlace(index) { this.savedPlaces.splice(index, 1); },
-            addExpense() { if(this.newExpenseName && this.newExpenseAmount) { this.expenses.unshift({name:this.newExpenseName, amount:this.newExpenseAmount}); this.newExpenseName=''; this.newExpenseAmount=''; } },
-            removeExpense(i) { this.expenses.splice(i, 1); },
-            addItem() { if(this.newItem.trim()) { this.shoppingList.unshift({text:this.newItem, checked:false}); this.newItem=''; } },
-            removeItem(i) { this.shoppingList.splice(i, 1); }
+            removeExpense(i) { this.expenses.splice(i,1); },
+            
+            addPlace(){if(this.newPlaceName){this.savedPlaces.push({name:this.newPlaceName});this.newPlaceName='';}},
+            removePlace(i){this.savedPlaces.splice(i,1);},
+            openMap(l){window.open(this.getMapLink(l),'_blank');},
+            addItem(){if(this.newItem.trim()){this.shoppingList.unshift({text:this.newItem,checked:false});this.newItem='';}},
+            removeItem(i){this.shoppingList.splice(i,1);}
         }
     }).mount('#app')
 </script>
