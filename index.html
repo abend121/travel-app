@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>富士山之旅 V6 (Pro UI)</title>
+    <title>Travel Planner V7 (Editable)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -16,9 +16,8 @@
                     colors: {
                         'fuji-blue': {
                             50: '#F0F7FF', 100: '#E0EFFE', 200: '#BADCFE', 300: '#7CBFFD',
-                            400: '#369EFF', 500: '#007AFF', 600: '#005AD3', 700: '#0046A8', 800: '#003A86', // iOS Style Blues
+                            400: '#369EFF', 500: '#007AFF', 600: '#005AD3', 700: '#0046A8', 800: '#003A86',
                         },
-                        'card-bg': 'rgba(255, 255, 255, 0.92)',
                     },
                     boxShadow: {
                         'soft': '0 8px 30px rgba(0,0,0,0.08)',
@@ -36,29 +35,19 @@
     
     <style>
         body {
-            /* 模仿參考圖的柔和藍天漸層背景 */
             background: linear-gradient(180deg, #E0EFFE 0%, #F0F7FF 40%, #FFFFFF 100%);
             background-attachment: fixed;
             -webkit-tap-highlight-color: transparent;
         }
-        /* 隱藏捲軸但可捲動 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
         .tap-active:active { transform: scale(0.97); transition: transform 0.1s; }
         
-        /* 玻璃擬態 */
-        .glass {
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-        }
-        
-        /* 航班卡片專用漸層 */
         .flight-card-gradient {
             background: linear-gradient(135deg, #4A90E2 0%, #005AD3 100%);
         }
+        /* 讓可編輯區域顯示手型游標 */
+        .cursor-pointer { cursor: pointer; }
     </style>
 </head>
 <body class="min-h-screen flex justify-center text-slate-800">
@@ -66,12 +55,14 @@
 <div id="app" class="w-full md:max-w-md flex flex-col h-screen overflow-hidden relative bg-white/30">
     
     <header class="pt-12 pb-2 px-6 flex justify-between items-end z-20">
-        <div class="flex items-center gap-2">
-            <h1 class="text-2xl font-black text-slate-800 tracking-wide">FujiTrip <i class="fas fa-mountain text-fuji-blue-400"></i></h1>
+        <div class="flex items-center gap-2 group cursor-pointer" @click="editTripTitle">
+            <h1 class="text-2xl font-black text-slate-800 tracking-wide border-b-2 border-transparent group-hover:border-slate-300 transition-all">
+                {{ tripTitle }} <i class="fas fa-pen text-[10px] text-slate-300 ml-1 align-top opacity-50 group-hover:opacity-100"></i>
+            </h1>
         </div>
-        <div class="text-right">
-            <p class="text-[10px] text-slate-400 font-bold mb-0.5">目前匯率</p>
-            <p class="text-xs font-bold text-fuji-blue-600 bg-white/60 px-2 py-1 rounded-lg backdrop-blur-sm shadow-sm">
+        <div class="text-right cursor-pointer group" @click="editExchangeRate">
+            <p class="text-[10px] text-slate-400 font-bold mb-0.5">目前匯率 (點擊修改)</p>
+            <p class="text-xs font-bold text-fuji-blue-600 bg-white/60 px-2 py-1 rounded-lg backdrop-blur-sm shadow-sm border border-transparent group-hover:border-fuji-blue-300 transition-all">
                 1 JPY ≈ {{ exchangeRate }} HKD
             </p>
         </div>
@@ -80,10 +71,8 @@
     <main class="flex-1 overflow-y-auto no-scrollbar pb-28 px-5">
         
         <div v-if="activeTab === 'schedule'" class="flex overflow-x-auto gap-3 py-4 no-scrollbar items-center">
-            
             <button @click="activeTab = 'checklist'" 
-                class="flex-shrink-0 w-[4.5rem] h-20 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all shadow-sm border border-white"
-                :class="activeTab === 'checklist' ? 'bg-slate-800 text-white' : 'bg-white text-slate-400'">
+                class="flex-shrink-0 w-[4.5rem] h-20 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all shadow-sm border border-white bg-white text-slate-400">
                 <i class="fas fa-clipboard-list text-xl"></i>
                 <span class="text-xs font-bold">行前</span>
             </button>
@@ -101,22 +90,24 @@
             
             <div class="bg-gradient-to-br from-blue-50 to-white rounded-3xl p-5 shadow-soft border border-white flex justify-between items-center relative overflow-hidden">
                 <div class="flex items-center gap-4 z-10">
-                    <div class="text-5xl drop-shadow-sm">{{ getWeatherIcon(currentWeather) }}</div>
+                    <div class="text-5xl drop-shadow-sm">{{ getWeatherIcon(dailyWeatherInfo.weather) }}</div>
                     <div>
                         <div class="flex items-baseline gap-2">
-                            <span class="text-3xl font-bold text-slate-800">5° <span class="text-lg">C</span></span>
+                            <span class="text-xl font-bold text-slate-800">{{ dailyWeatherInfo.location }}</span>
                         </div>
-                        <p class="text-xs text-slate-500 font-medium">體感 2°C · {{ currentWeather === 'sunny' ? '晴時多雲' : '有雨' }}</p>
+                        <p class="text-xs text-slate-500 font-medium mt-1">
+                            {{ dailyWeatherInfo.weather === 'sunny' ? '晴時多雲' : (dailyWeatherInfo.weather === 'rainy' ? '有雨' : '多雲') }}
+                        </p>
                     </div>
                 </div>
-                <div class="z-10 bg-white/80 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-fuji-blue-600 shadow-sm">
-                    <i class="fas fa-map-marker-alt mr-1"></i> {{ firstLocationOfDay || '東京' }}
-                </div>
+                <a :href="getGoogleWeatherLink(dailyWeatherInfo.location)" target="_blank" class="z-10 bg-white/80 backdrop-blur px-3 py-2 rounded-xl text-xs font-bold text-fuji-blue-600 shadow-sm tap-active">
+                   Check 天氣 <i class="fas fa-external-link-alt ml-1"></i>
+                </a>
             </div>
 
             <div class="flex justify-between items-center px-1">
                 <h2 class="text-lg font-bold text-slate-700 bg-fuji-blue-100/50 px-3 py-1 rounded-lg">行程安排</h2>
-                <button @click="openScheduleModal" class="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg tap-active flex items-center gap-1 hover:bg-slate-700">
+                <button @click="openCreateModal" class="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg tap-active flex items-center gap-1 hover:bg-slate-700">
                     <i class="fas fa-plus"></i> 新增
                 </button>
             </div>
@@ -129,17 +120,17 @@
             <div class="space-y-4">
                 <div v-for="(item, index) in filteredItinerary" :key="item.id" class="relative group">
                     
-                    <button @click="deleteItinerary(item.id)" class="absolute -top-2 -right-2 z-20 bg-white text-red-500 rounded-full w-6 h-6 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button @click.stop="deleteItinerary(item.id)" class="absolute -top-2 -left-2 z-20 bg-white text-red-500 rounded-full w-6 h-6 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <i class="fas fa-times text-xs"></i>
                     </button>
 
-                    <div v-if="item.type === 'flight'" class="flight-card-gradient rounded-3xl p-5 text-white shadow-lg relative overflow-hidden">
+                    <div v-if="item.type === 'flight'" class="flight-card-gradient rounded-3xl p-5 text-white shadow-lg relative overflow-hidden tap-active" @click="openEditModal(item)">
                         <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
                         
                         <div class="flex justify-between items-center mb-6">
                             <span class="bg-white/20 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider">FLIGHT</span>
                             <span class="font-mono text-xl font-bold">{{ item.time }}</span>
-                            <button class="text-white/80 hover:text-white"><i class="fas fa-pencil-alt text-xs"></i></button>
+                            <div class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center"><i class="fas fa-pencil-alt text-[10px]"></i></div>
                         </div>
 
                         <div class="flex justify-between items-center px-2 relative">
@@ -147,26 +138,19 @@
                                 <p class="text-[10px] text-blue-100 font-bold mb-1">FROM</p>
                                 <p class="text-3xl font-black tracking-wider">{{ item.from || 'HKG' }}</p>
                             </div>
-                            
                             <div class="flex-1 flex flex-col items-center px-4">
                                 <i class="fas fa-plane text-2xl mb-1 transform rotate-[-45deg]"></i>
                                 <div class="w-full h-[2px] border-t-2 border-dashed border-white/40 relative top-[-14px] -z-10"></div>
                                 <p class="text-[9px] text-blue-100 mt-1 whitespace-nowrap">{{ item.title }}</p>
                             </div>
-
                             <div class="text-center">
                                 <p class="text-[10px] text-blue-100 font-bold mb-1">TO</p>
                                 <p class="text-3xl font-black tracking-wider">{{ item.to || 'TYO' }}</p>
                             </div>
                         </div>
-
-                        <div class="mt-6 flex justify-between items-end">
-                            <p class="text-xs font-medium opacity-80">{{ item.flightNum || 'HB320' }}</p>
-                            <span class="bg-white text-blue-700 text-[10px] font-bold px-3 py-1 rounded-full">已確認</span>
-                        </div>
                     </div>
 
-                    <div v-else class="bg-white rounded-3xl p-5 shadow-soft border border-white flex gap-4 items-center">
+                    <div v-else class="bg-white rounded-3xl p-5 shadow-soft border border-white flex gap-4 items-center tap-active" @click="openEditModal(item)">
                         <div class="flex flex-col items-center min-w-[50px]">
                             <div class="w-10 h-10 rounded-full flex items-center justify-center mb-1" 
                                 :class="item.type === 'transport' ? 'bg-blue-50 text-blue-500' : 'bg-orange-50 text-orange-500'">
@@ -177,16 +161,13 @@
 
                         <div class="flex-1 border-l pl-4 border-slate-100">
                             <h3 class="font-bold text-slate-800 text-lg leading-tight">{{ item.title }}</h3>
-                            
                             <div v-if="item.location" class="flex items-center gap-2 mt-2">
-                                <a :href="getMapLink(item.location)" target="_blank" 
+                                <a :href="getMapLink(item.location)" @click.stop target="_blank" 
                                    class="bg-fuji-blue-50 text-fuji-blue-600 px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 hover:bg-blue-100 transition">
                                     <i class="fas fa-location-arrow"></i> 導航
                                 </a>
                                 <span class="text-xs text-slate-400 font-medium truncate">{{ item.location }}</span>
                             </div>
-                            
-                            <p v-if="item.notes" class="text-xs text-slate-400 mt-1">{{ item.notes }}</p>
                         </div>
                         
                         <button class="text-slate-300 hover:text-slate-500"><i class="fas fa-pencil-alt text-sm"></i></button>
@@ -197,7 +178,7 @@
         </div>
 
         <div v-if="activeTab === 'checklist'" class="space-y-4 pt-4">
-            <div class="bg-slate-800 text-white p-6 rounded-3xl shadow-lg relative overflow-hidden">
+             <div class="bg-slate-800 text-white p-6 rounded-3xl shadow-lg relative overflow-hidden">
                 <h2 class="text-xl font-bold z-10 relative">行前準備</h2>
                 <div class="mt-4 flex items-end gap-2">
                     <span class="text-4xl font-black">{{ checklistProgress }}%</span>
@@ -206,22 +187,18 @@
                 <div class="w-full bg-white/20 h-2 rounded-full mt-2 overflow-hidden">
                     <div class="bg-fuji-blue-400 h-full transition-all duration-500" :style="{width: checklistProgress + '%'}"></div>
                 </div>
-                <i class="fas fa-suitcase-rolling absolute -right-4 -bottom-4 text-8xl text-white opacity-10"></i>
             </div>
-
+            
             <div class="bg-white rounded-3xl shadow-soft p-2">
-                <div v-for="(item, index) in checklist" :key="item.id" 
-                     class="flex items-center gap-3 p-3 border-b last:border-0 border-slate-50">
-                    <div @click="item.checked = !item.checked" 
-                         class="w-6 h-6 rounded-lg border-2 flex items-center justify-center cursor-pointer transition-colors"
-                         :class="item.checked ? 'bg-fuji-blue-500 border-fuji-blue-500' : 'border-slate-200'">
+                <div v-for="(item, index) in checklist" :key="item.id" class="flex items-center gap-3 p-3 border-b last:border-0 border-slate-50">
+                    <div @click="item.checked = !item.checked" class="w-6 h-6 rounded-lg border-2 flex items-center justify-center cursor-pointer transition-colors" :class="item.checked ? 'bg-fuji-blue-500 border-fuji-blue-500' : 'border-slate-200'">
                         <i v-if="item.checked" class="fas fa-check text-white text-xs"></i>
                     </div>
                     <span class="flex-1 font-medium text-sm" :class="item.checked ? 'text-slate-300 line-through' : 'text-slate-700'">{{ item.text }}</span>
                     <button @click="removeChecklistItem(index)" class="text-slate-200 hover:text-red-400"><i class="fas fa-trash text-xs"></i></button>
                 </div>
                 <div class="p-2 flex gap-2">
-                    <input v-model="checklistForm.text" placeholder="新增準備事項..." class="flex-1 bg-slate-50 rounded-xl px-3 text-sm outline-none">
+                    <input v-model="checklistForm.text" placeholder="新增..." class="flex-1 bg-slate-50 rounded-xl px-3 text-sm outline-none">
                     <button @click="submitChecklist" class="bg-fuji-blue-500 text-white w-8 h-8 rounded-lg shadow-md flex items-center justify-center"><i class="fas fa-plus"></i></button>
                 </div>
             </div>
@@ -232,12 +209,10 @@
                 <div class="bg-emerald-500 p-4 rounded-3xl shadow-lg text-white relative overflow-hidden">
                     <p class="text-[10px] font-bold opacity-80">CASH (HKD)</p>
                     <p class="text-2xl font-black mt-1">${{ formatNumber(totalCashHKD) }}</p>
-                    <i class="fas fa-coins absolute -bottom-3 -right-3 text-6xl opacity-20"></i>
                 </div>
                 <div class="bg-rose-500 p-4 rounded-3xl shadow-lg text-white relative overflow-hidden">
                     <p class="text-[10px] font-bold opacity-80">CARD (HKD)</p>
                     <p class="text-2xl font-black mt-1">${{ formatNumber(totalCardHKD) }}</p>
-                    <i class="fas fa-credit-card absolute -bottom-3 -right-3 text-6xl opacity-20"></i>
                 </div>
             </div>
 
@@ -307,7 +282,7 @@
         <div v-if="modals.schedule" class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-4">
             <div class="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl mb-4 md:mb-0 animate-slide-up">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-black text-slate-800">新增行程</h3>
+                    <h3 class="text-lg font-black text-slate-800">{{ editingId ? '修改行程' : '新增行程' }}</h3>
                     <button @click="modals.schedule = false" class="text-slate-300"><i class="fas fa-times"></i></button>
                 </div>
                 
@@ -325,19 +300,29 @@
                         <input v-model="scheduleForm.date" type="date" class="flex-1 bg-slate-50 p-3 rounded-xl outline-none font-bold text-slate-600 text-sm">
                         <input v-model="scheduleForm.time" type="time" class="w-24 bg-slate-50 p-3 rounded-xl outline-none font-bold text-slate-600 text-sm">
                     </div>
-
+                    
                     <div v-if="scheduleForm.type === 'flight'" class="grid grid-cols-2 gap-2 bg-blue-50 p-3 rounded-xl border border-blue-100">
                         <input v-model="scheduleForm.from" placeholder="出發 (HKG)" class="bg-white p-2 rounded-lg text-xs outline-none">
                         <input v-model="scheduleForm.to" placeholder="抵達 (TYO)" class="bg-white p-2 rounded-lg text-xs outline-none">
                         <input v-model="scheduleForm.flightNum" placeholder="航班編號" class="col-span-2 bg-white p-2 rounded-lg text-xs outline-none">
                     </div>
 
-                    <input v-model="scheduleForm.title" type="text" :placeholder="scheduleForm.type === 'flight' ? '航空公司 / 備註' : '標題 (例：NEX成田特快)'" class="w-full bg-slate-50 p-3 rounded-xl outline-none text-sm font-bold">
-                    <input v-model="scheduleForm.location" type="text" placeholder="地點 / 車站" class="w-full bg-slate-50 p-3 rounded-xl outline-none text-sm">
+                    <input v-model="scheduleForm.title" type="text" :placeholder="scheduleForm.type === 'flight' ? '航空公司' : '標題 (例：NEX成田特快)'" class="w-full bg-slate-50 p-3 rounded-xl outline-none text-sm font-bold">
+                    <input v-model="scheduleForm.location" type="text" placeholder="地點 (會影響天氣預報！)" class="w-full bg-slate-50 p-3 rounded-xl outline-none text-sm">
+                    
+                    <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-xl">
+                        <span class="text-xs font-bold text-slate-400 pl-2">預測天氣:</span>
+                        <select v-model="scheduleForm.weather" class="bg-transparent text-sm font-bold outline-none flex-1">
+                            <option value="sunny">☀️ 晴天</option>
+                            <option value="cloudy">⛅ 多雲</option>
+                            <option value="rainy">🌧️ 雨天</option>
+                            <option value="snow">❄️ 下雪</option>
+                        </select>
+                    </div>
                 </div>
 
                 <button @click="submitSchedule" class="w-full mt-6 py-3 bg-fuji-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 tap-active">
-                    確認新增
+                    {{ editingId ? '保存修改' : '確認新增' }}
                 </button>
             </div>
         </div>
@@ -367,36 +352,41 @@
                 activeTab: 'schedule',
                 modals: { schedule: false },
                 selectedDate: today,
-                // V6 Data Model: Added 'type', 'from', 'to', 'flightNum'
-                scheduleForm: { type: 'activity', date: today, time: '09:00', title: '', location: '', from: '', to: '', flightNum: '' },
                 
-                // Sample Data to match screenshot
-                itinerary: JSON.parse(localStorage.getItem('itinerary_v6')) || [
+                // 標題與匯率 (現在保存於 LocalStorage)
+                tripTitle: localStorage.getItem('tripTitle_v7') || 'FujiTrip',
+                exchangeRate: parseFloat(localStorage.getItem('exchangeRate_v7')) || 0.052,
+
+                // 編輯狀態
+                editingId: null,
+
+                // 表單資料
+                scheduleForm: { type: 'activity', date: today, time: '09:00', title: '', location: '', from: '', to: '', flightNum: '', weather: 'sunny' },
+                
+                // 行程資料 (預設資料展示功能用)
+                itinerary: JSON.parse(localStorage.getItem('itinerary_v7')) || [
                     { id: 1, type: 'flight', date: today, time: '09:05', title: '航班前往東京', flightNum: 'HB320', from: 'HKG', to: 'TYO', location: '成田機場', weather: 'sunny' },
-                    { id: 2, type: 'transport', date: today, time: '15:00', title: 'NEX 成田特快', location: '成田空港駅', notes: '前往新宿', weather: 'sunny' },
-                    { id: 3, type: 'activity', date: today, time: '18:00', title: 'Check-in', location: '新宿格拉斯麗酒店', weather: 'cloudy' }
+                    { id: 2, type: 'transport', date: today, time: '15:00', title: 'NEX 成田特快', location: '成田空港駅', weather: 'sunny' }
                 ],
                 
                 checklistForm: { text: '' },
-                checklist: JSON.parse(localStorage.getItem('checklist_v6')) || [
+                checklist: JSON.parse(localStorage.getItem('checklist_v7')) || [
                     { id: 1, text: '護照 Passport', checked: false },
-                    { id: 2, text: '日元現金', checked: true },
-                    { id: 3, text: 'Visit Japan Web', checked: false }
+                    { id: 2, text: '日元現金', checked: true }
                 ],
                 
-                // Accounting
-                newExpenseName: '', newExpenseAmount: '', newExpenseCurrency: 'JPY', newExpenseMethod: 'cash', exchangeRate: 0.052,
-                expenses: JSON.parse(localStorage.getItem('expenses_v5')) || [],
+                newExpenseName: '', newExpenseAmount: '', newExpenseCurrency: 'JPY', newExpenseMethod: 'cash',
+                expenses: JSON.parse(localStorage.getItem('expenses_v7')) || [],
 
-                savedPlaces: JSON.parse(localStorage.getItem('places_v3')) || [], newPlaceName: '',
-                shoppingList: JSON.parse(localStorage.getItem('shoppingList_v3')) || [], newItem: '',
+                savedPlaces: JSON.parse(localStorage.getItem('places_v7')) || [], newPlaceName: '',
+                shoppingList: JSON.parse(localStorage.getItem('shoppingList_v7')) || [], newItem: '',
                 
                 tabs: [
                     { id: 'schedule', label: '行程', icon: 'fas fa-map-signs' },
                     { id: 'map', label: '地圖', icon: 'fas fa-map-marked-alt' },
                     { id: 'accounting', label: '記帳', icon: 'fas fa-wallet' },
                     { id: 'shopping', label: '購物', icon: 'fas fa-shopping-bag' },
-                    { id: 'checklist', label: '資訊', icon: 'fas fa-info-circle' }, // Mapped 'Info' to Checklist/Pre-trip
+                    { id: 'checklist', label: '資訊', icon: 'fas fa-info-circle' },
                 ]
             }
         },
@@ -408,36 +398,78 @@
             },
             filteredItinerary() { return this.itinerary.filter(i => i.date === this.selectedDate).sort((a,b) => a.time.localeCompare(b.time)); },
             checklistProgress() { if(this.checklist.length===0)return 0; return Math.round((this.checklist.filter(i=>i.checked).length/this.checklist.length)*100); },
-            firstLocationOfDay() { const list = this.filteredItinerary; return list.length > 0 ? list[0].location : '東京'; },
-            currentWeather() { const item = this.filteredItinerary.find(i => i.weather); return item ? item.weather : 'sunny'; },
+            
+            // 天氣邏輯：抓取當天第一個行程，如果沒有則顯示預設
+            dailyWeatherInfo() {
+                const list = this.filteredItinerary;
+                if (list.length > 0 && list[0].location) {
+                    return { location: list[0].location, weather: list[0].weather || 'sunny' };
+                }
+                return { location: '自由探索', weather: 'sunny' }; // 預設值
+            },
             
             totalCashHKD() { return this.expenses.filter(e => e.method === 'cash').reduce((sum, e) => sum + (e.currency === 'JPY' ? e.amount * this.exchangeRate : e.amount), 0); },
             totalCardHKD() { return this.expenses.filter(e => e.method === 'card').reduce((sum, e) => sum + (e.currency === 'JPY' ? e.amount * this.exchangeRate : e.amount), 0); }
         },
         watch: {
-            itinerary: { handler(v) { localStorage.setItem('itinerary_v6', JSON.stringify(v)); }, deep: true },
-            checklist: { handler(v) { localStorage.setItem('checklist_v6', JSON.stringify(v)); }, deep: true },
-            expenses: { handler(v) { localStorage.setItem('expenses_v5', JSON.stringify(v)); }, deep: true },
-            savedPlaces: { handler(v) { localStorage.setItem('places_v3', JSON.stringify(v)); }, deep: true },
-            shoppingList: { handler(v) { localStorage.setItem('shoppingList_v3', JSON.stringify(v)); }, deep: true }
+            tripTitle(v) { localStorage.setItem('tripTitle_v7', v); },
+            exchangeRate(v) { localStorage.setItem('exchangeRate_v7', v); },
+            itinerary: { handler(v) { localStorage.setItem('itinerary_v7', JSON.stringify(v)); }, deep: true },
+            checklist: { handler(v) { localStorage.setItem('checklist_v7', JSON.stringify(v)); }, deep: true },
+            expenses: { handler(v) { localStorage.setItem('expenses_v7', JSON.stringify(v)); }, deep: true },
+            savedPlaces: { handler(v) { localStorage.setItem('places_v7', JSON.stringify(v)); }, deep: true },
+            shoppingList: { handler(v) { localStorage.setItem('shoppingList_v7', JSON.stringify(v)); }, deep: true }
         },
         methods: {
             getWeatherIcon(t) { const i={'sunny':'☀️','cloudy':'⛅','rainy':'🌧️','snow':'❄️'}; return i[t]||'🌤️'; },
-            getCategoryIcon(type) { return type === 'transport' ? 'fas fa-train' : 'fas fa-star'; }, // Icon logic
+            getCategoryIcon(type) { return type === 'transport' ? 'fas fa-train' : 'fas fa-star'; },
             getMapLink(l) { return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l)}`; },
+            getGoogleWeatherLink(l) { return `https://www.google.com/search?q=weather+${encodeURIComponent(l)}`; },
             formatNumber(num) { return Math.round(num).toLocaleString(); },
             
-            openScheduleModal() { this.scheduleForm.date = this.selectedDate; this.modals.schedule = true; },
-            submitSchedule() { 
-                if(this.scheduleForm.title){ 
-                    this.itinerary.push({...this.scheduleForm, id:Date.now()}); 
-                    this.selectedDate=this.scheduleForm.date; 
-                    this.modals.schedule=false; 
-                    // Reset form but keep simple defaults
-                    this.scheduleForm = { type: 'activity', date: this.scheduleForm.date, time: '09:00', title: '', location: '', from: '', to: '', flightNum: '' };
-                } 
+            // --- 編輯標題與匯率 ---
+            editTripTitle() {
+                const newTitle = prompt("請輸入旅程名稱：", this.tripTitle);
+                if (newTitle) this.tripTitle = newTitle;
             },
-            deleteItinerary(id) { if(confirm('確定刪除？')) this.itinerary = this.itinerary.filter(i=>i.id!==id); },
+            editExchangeRate() {
+                const newRate = prompt("請輸入 JPY 對 HKD 匯率 (例如 0.052)：", this.exchangeRate);
+                if (newRate && !isNaN(parseFloat(newRate))) {
+                    this.exchangeRate = parseFloat(newRate);
+                }
+            },
+
+            // --- 行程 CRUD ---
+            openCreateModal() {
+                this.editingId = null;
+                // 重置表單
+                this.scheduleForm = { type: 'activity', date: this.selectedDate, time: '09:00', title: '', location: '', from: '', to: '', flightNum: '', weather: 'sunny' };
+                this.modals.schedule = true;
+            },
+            openEditModal(item) {
+                this.editingId = item.id;
+                // 複製資料到表單 (Deep copy)
+                this.scheduleForm = JSON.parse(JSON.stringify(item));
+                this.modals.schedule = true;
+            },
+            submitSchedule() { 
+                if(!this.scheduleForm.title) { alert('請輸入標題'); return; }
+                
+                if (this.editingId) {
+                    // 修改模式
+                    const index = this.itinerary.findIndex(i => i.id === this.editingId);
+                    if (index !== -1) {
+                        this.itinerary[index] = { ...this.scheduleForm, id: this.editingId };
+                    }
+                } else {
+                    // 新增模式
+                    this.itinerary.push({...this.scheduleForm, id: Date.now()}); 
+                }
+                
+                this.selectedDate = this.scheduleForm.date; // 跳轉到該日期
+                this.modals.schedule = false; 
+            },
+            deleteItinerary(id) { if(confirm('確定刪除此行程？')) this.itinerary = this.itinerary.filter(i=>i.id!==id); },
             
             submitChecklist() { if(this.checklistForm.text){ this.checklist.push({id:Date.now(), text:this.checklistForm.text, checked:false}); this.checklistForm.text=''; } },
             removeChecklistItem(i) { this.checklist.splice(i,1); },
